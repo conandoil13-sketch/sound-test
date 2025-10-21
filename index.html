@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mic RPG Battle (Offline Test)</title>
+    <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+    <header>🎙️ Mic RPG Battle (A+B+C 오프라인 분석) — Test</header>
+
+    <main>
+        <div class="row cols">
+            <div class="panel">
+                <div class="duo">
+                    <div class="side">
+                        <div class="label">당신</div>
+                        <div class="hpbar" aria-label="your hp">
+                            <div id="hpYou"></div>
+                        </div>
+                        <div class="stat"><span>HP</span><span id="hpYouTxt">100</span></div>
+                    </div>
+                    <div class="side">
+                        <div class="label enemy">적</div>
+                        <div class="hpbar" aria-label="enemy hp">
+                            <div id="hpEnemy" class="enemybar"></div>
+                        </div>
+                        <div class="stat"><span>HP</span><span id="hpEnemyTxt">100</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">전투 입력</div>
+                <div class="btns">
+                    <button id="btnInit">오디오 초기화</button>
+                    <button id="btnAttack" disabled>🎤 공격(1초 녹음)</button>
+                    <button id="btnEnemy" disabled>적 턴</button>
+                </div>
+                <p class="hint">
+                    팁: 큰 소리 = 높은 ATK, 고음 = 속공형, 저음 = 묵직. 거친 소리(ZCR↑)는 크리 변동↑<br />
+                    iOS는 녹음 전 화면을 한 번 탭해 주세요.
+                </p>
+            </div>
+        </div>
+
+        <div class="row panel">
+            <div class="panel-title">분석 결과 → 스킬 매핑</div>
+            <div id="tags" class="tags"></div>
+            <pre id="stats" class="log"></pre>
+        </div>
+
+        <div class="row panel">
+            <div class="panel-title">전투 로그</div>
+            <pre id="log" class="log"></pre>
+        </div>
+    </main>
+
+    <script src="./app.js"></script>
+</body>
+
+</html>
