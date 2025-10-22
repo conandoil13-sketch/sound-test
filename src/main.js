@@ -7,7 +7,7 @@ const log = txt => { const L = $('log'); if (!L) return; L.textContent += txt + 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ab2hex = buf => { const h = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join(''); return h; };
 
-// deterministic RNG from hex string (simple xorshift-ish)
+// 파일의 해시값을 게임에서 사용되는 난수로 변환.>시드값으로 사용
 function seedFromHex(hex) {
     // take first 16 chars -> number seed
     const s = parseInt(hex.slice(0, 16), 16) || 123456789;
@@ -26,7 +26,7 @@ async function sha256Hex(arrayBuffer) {
     return ab2hex(digest);
 }
 
-// read file as ArrayBuffer
+// 파일을 컴퓨터가 읽을 수 있는 형태로 변환
 function readFileArrayBuffer(file) {
     return new Promise((res, rej) => {
         const fr = new FileReader();
@@ -90,11 +90,11 @@ async function analyzeFile(file) {
 function featuresToCharacter(feat) {
     // base stats
     const sizeKB = feat.size / 1024;
-    const hp = Math.round(clamp(50 + sizeKB / 50, 30, 200)); // 파일 크기 기준
+    const hp = Math.round(clamp(48 + sizeKB / 60, 30, 200)); // 파일 크기 기준
     const def = Math.round(clamp(5 + (sizeKB % 50) / 5, 5, 80));
     const nameFactor = feat.nameLen;
     const imgMaxSide = feat.imageSize ? Math.max(feat.imageSize.w, feat.imageSize.h) : 0;
-    const atk = Math.round(clamp(5 + nameFactor * 2 + imgMaxSide / 50, 5, 120));
+    const atk = Math.round(clamp(5 + nameFactor * 2 + imgMaxSide / 60, 5, 120));
     const spd = Math.round(clamp(10 + (nameFactor % 10) + ((feat.lastModified || 0) % 7), 5, 90));
 
     // crit from hash
