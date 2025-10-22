@@ -159,7 +159,7 @@ function computeDamage(attacker, defender, seedRandom) {
 
 // Simple enemy generator (random but reproducible via seed)
 function generateEnemy(seedRandom, level = 1) {
-    const hp = 40 + Math.round(seedRandom() * 120);
+    const hp = 60 + Math.round(seedRandom() * 140);
     const atk = 8 + Math.round(seedRandom() * 40);
     const def = 3 + Math.round(seedRandom() * 20);
     const spd = 8 + Math.round(seedRandom() * 30);
