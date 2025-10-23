@@ -16,7 +16,17 @@
     <div id="tags"></div>
     <pre id="stats"></pre>
     <pre id="log" style="height:220px; overflow:auto; background:#111;color:#fff;padding:8px"></pre>
-
+    <section id="world" style="margin:10px 0; padding:10px; border:1px solid #2a2f55; border-radius:10px;">
+        <div style="margin-bottom:8px; font-weight:700;">🌌 가상 폴더 탐험 (시드 기반)</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+            <button id="worldGenBtn" disabled>월드 생성(가상 폴더)</button>
+            <button id="enterRoomBtn" disabled>현재 방 진입/탐색</button>
+            <button id="nextRoomBtn" disabled>다음 방 이동</button>
+            <button id="prevRoomBtn" disabled>이전 방</button>
+        </div>
+        <div id="worldInfo" style="font-size:13px; color:#9aa3d9; margin-bottom:6px;"></div>
+        <div id="roomList" style="font-size:13px; line-height:1.5;"></div>
+    </section>
     <!-- HP bars (선택) -->
     <div class="hpbar">
         <div id="hpYou" style="width:100%;background:green;height:12px"></div>
