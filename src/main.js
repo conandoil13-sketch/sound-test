@@ -145,7 +145,7 @@ function generateEnemy(seedRandom, level = 1) {
 }
 
 // ---------- 월드/루트(가상 폴더) 절차 생성 ----------
-let WORLD = null;           // { seedStr, rooms:[{id,label,type,encRate,eventRate,visited}], index }
+let WORLD = null;
 let currentSummon = null;
 let currentSeedRandom = Math.random;
 
