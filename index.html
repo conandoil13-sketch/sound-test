@@ -1,44 +1,147 @@
-<!doctype html>
-<html lang="ko">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Mic RPG Battle (Offline Test)</title>
-    <link rel="stylesheet" href="./style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Data Roguelike RPG — PIXIE</title>
+    <link rel="stylesheet" href="./src/style.css">
 </head>
 
 <body>
-    <input id="fileInput" type="file" />
-    <button id="summonBtn">소환 (파일 업로드)</button>
-
-
-    <div id="tags"></div>
-    <pre id="stats"></pre>
-    <pre id="log" style="height:220px; overflow:auto; background:#111;color:#fff;padding:8px"></pre>
-    <section id="world" style="margin:10px 0; padding:10px; border:1px solid #2a2f55; border-radius:10px;">
-        <div style="margin-bottom:8px; font-weight:700;">🌌 가상 폴더 탐험 (시드 기반)</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
-            <button id="worldGenBtn" disabled>월드 생성(가상 폴더)</button>
-            <button id="enterRoomBtn" disabled>현재 방 진입/탐색</button>
-            <button id="nextRoomBtn" disabled>다음 방 이동</button>
-            <button id="prevRoomBtn" disabled>이전 방</button>
+    <!-- 상단 HUD -->
+    <header class="topbar">
+        <div class="left">
+            <span id="floor">F1-α</span>
+            <span id="fidelity" aria-label="fidelity level">L0</span>
+            <span id="exitHint" hidden>Exit?</span>
         </div>
-        <div id="worldInfo" style="font-size:13px; color:#9aa3d9; margin-bottom:6px;"></div>
-        <div id="roomList" style="font-size:13px; line-height:1.5;"></div>
+        <div class="right">
+            <button id="pixieBtn" class="icon">🤖</button>
+            <span id="gold">0G</span>
+        </div>
+    </header>
+
+    <!-- 컨텐츠: 방 카드 + 전투 무대 -->
+    <section id="roomCard" class="card">
+        <h2 id="roomName">안녕 ! 나는 P.I.X.I.E(Personal Indexing eXfiltration Interface.)야! 탐사를 시작하려면 사진을 불러와줘!</h2>
+        <p id="roomDesc">하단의 “기억을 불러오기”를 눌러 탐사자를 소환해보자!</p>
     </section>
-    <button id="attackBtn" disabled>공격</button>
-    <!-- HP bars (선택) -->
-    <div class="hpbar">
-        <div id="hpYou" style="width:100%;background:green;height:12px"></div>
-    </div>
-    <div id="hpYouTxt">100</div>
-    <div class="hpbar">
-        <div id="hpEnemy" style="width:100%;background:red;height:12px"></div>
-    </div>
-    <div id="hpEnemyTxt">100</div>
+
+    <!-- 전투 무대 (포켓몬형) -->
+    <section id="battleStage" class="stage" hidden>
+        <div id="battleBG" class="bg"></div>
+        <div id="fxLayer" class="fx"></div>
+        <div id="dmgFloats" class="floats"></div>
+
+        <div class="side you">
+            <img id="youSprite" alt="you">
+            <div class="hp">
+                <div id="hpYou" class="bar"></div>
+                <span id="hpYouTxt">HP 0/0</span>
+            </div>
+        </div>
+
+        <div class="side enemy">
+            <img id="enemySprite" alt="enemy">
+            <div class="hp">
+                <div id="hpEnemy" class="bar"></div>
+                <span id="hpEnemyTxt">HP 0/0</span>
+            </div>
+            <div id="enemyChips" class="chips"></div>
+        </div>
+    </section>
+
+    <!-- 스탯·태그 -->
+    <section id="stats" class="stats"></section>
+    <section id="tags" class="tags"></section>
+    <!-- ❌ 불필요한 </main> 제거 -->
+
+    <!-- 하단 액션바 -->
+    <footer class="bottombar">
+        <input id="fileInput" type="file" accept="image/*" hidden />
+        <button id="mapDock" class="ghost">지도</button>
+        <button id="summonBtn">기억을 불러오기</button>
+        <button id="attackBtn" class="primary" disabled>공격</button>
+        <button id="bagBtn" class="ghost">가방</button>
+    </footer>
+
+    <!-- 로그 시트 -->
+    <aside id="logSheet" class="sheet" hidden>
+        <pre id="log"></pre>
+    </aside>
+
+    <!-- 맵 오버레이 -->
+    <aside id="mapOverlay" class="overlay" hidden>
+        <div class="overlay-inner">
+            <div id="breadcrumb"></div>
+            <div id="mapGraph"></div>
+            <button class="close" data-close="#mapOverlay">닫기</button>
+        </div>
+    </aside>
+
+    <!-- 가방 시트 (장비/소모/유물) -->
+    <aside id="bagSheet" class="sheet" hidden>
+        <nav class="tabs">
+            <button data-tab="equip" class="active">장비</button>
+            <button data-tab="consum">소모품</button>
+            <button data-tab="relics">유물</button>
+        </nav>
+        <div id="equipSlots" class="panel"></div>
+        <div id="itemsList" class="panel" hidden></div>
+        <div id="relics" class="panel" hidden></div>
+    </aside>
+
+    <!-- 시드 업로드 팝업 2개 -->
+    <dialog id="seedPopupA" hidden>
+        <h3>시드 매핑실 — 경로 시드</h3>
+        <p>다음 트리의 경로를 설계할 사진을 업로드해줘.</p>
+        <input id="seedFileA" type="file" accept="image/*" />
+        <menu>
+            <button data-close="#seedPopupA">취소</button>
+            <button id="seedOkA">확정</button>
+        </menu>
+    </dialog>
+
+    <dialog id="seedPopupB" hidden>
+        <h3>시드 매핑실 — 환경 시드</h3>
+        <p>층의 분위기/이벤트 경향을 정할 사진을 업로드해줘.</p>
+        <input id="seedFileB" type="file" accept="image/*" />
+        <menu>
+            <button data-close="#seedPopupB">취소</button>
+            <button id="seedOkB">확정</button>
+        </menu>
+    </dialog>
+
+    <!-- 대화 패널 -->
+    <aside id="dialoguePanel" class="overlay" hidden>
+        <div class="dialogue">
+            <div id="dialogueLines"></div>
+            <div id="choiceList" class="choices"></div>
+            <button class="close" data-close="#dialoguePanel">닫기</button>
+        </div>
+    </aside>
 
 
+
+    <!-- 인트로 오버레이 -->
+    <aside id="intro" class="intro" hidden aria-hidden="true">
+        <div class="intro-wrap">
+            <div class="scanlines"></div>
+            <div class="noise"></div>
+
+            <div class="badge">P.I.X.I.E / v0.1 boot</div>
+
+            <h1 class="logo">
+                <span class="type">P.I.X.I.E</span><span class="cursor">▋</span>
+            </h1>
+            <p class="subtitle">Personal&nbsp;Indexing&nbsp;eXfiltration&nbsp;Interface</p>
+
+            <p class="hint">추억 시그니처 확인 중…</p>
+
+            <button id="skipIntro" class="intro-skip">건너뛰기</button>
+        </div>
+    </aside>
     <script src="./src/main.js"></script>
 </body>
 
