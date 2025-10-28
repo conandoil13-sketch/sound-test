@@ -732,11 +732,11 @@ function advanceFlow(delay = 0) {
 // 결과 범위 예시: 6 ~ 24 사이(상수로 튜닝 가능)
 function softDamageAgainst(ATK, DEF) {
     // 튜닝 상수
-    const BASE = 6;          // 최소 기반 피해
-    const SPAN = 18;         // 추가로 벌어질 수 있는 범위 (BASE+SPAN=상한)
-    const K_ATK = 0.85;      // ATK 효과 완화
-    const C_DEF = 1.30;      // DEF 효율(높을수록 방어가 잘 먹힘)
-    const BIAS = 24;         // 분모 바이어스(초저스탯 폭주 방지)
+    const BASE = 8;          // 최소 기반 피해
+    const SPAN = 20;         // 추가로 벌어질 수 있는 범위 (BASE+SPAN=상한)
+    const K_ATK = 0.90;      // ATK 효과 완화
+    const C_DEF = 1.20;      // DEF 효율(높을수록 방어가 잘 먹힘)
+    const BIAS = 22;         // 분모 바이어스(초저스탯 폭주 방지)
 
     const num = ATK * K_ATK;
     const den = (ATK * K_ATK) + (DEF * C_DEF) + BIAS;
