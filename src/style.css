@@ -672,3 +672,204 @@ body[data-phase="intro"] #attackBtn {
         opacity: 1;
     }
 }
+
+/* Bag sheet header & close */
+.sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 2px 10px;
+}
+
+.sheet-close {
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 10px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.sheet-close:hover {
+    filter: brightness(1.06);
+}
+
+/* ===== Tier badges ===== */
+.tier-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tier-T1 {
+    background: #2a2a2a;
+    color: #bcbcbc;
+    border: 1px solid #3a3a3a;
+}
+
+.tier-T2 {
+    background: #153a2a;
+    color: #93e9a1;
+    border: 1px solid #1d5a40;
+}
+
+.tier-T3 {
+    background: #132b4a;
+    color: #8bc6ff;
+    border: 1px solid #1f4a78;
+}
+
+.tier-T4 {
+    background: #3a203a;
+    color: #f2a7ff;
+    border: 1px solid #5a2c5a;
+}
+
+.tier-T5 {
+    background: #4a2c14;
+    color: #ffcf8b;
+    border: 1px solid #6b3b18;
+}
+
+/* visited/new chip */
+.chip {
+    display: inline-block;
+    padding: 2px 6px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    font-size: 11px;
+    margin-left: 8px;
+}
+
+.chip.muted {
+    opacity: .6;
+}
+
+/* ===== 기본 시트 레이아웃(없다면 사용) ===== */
+.sheet {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    width: min(460px, 92vw);
+    background: rgba(20, 20, 28, .85);
+    border: 1px solid rgba(160, 160, 220, .25);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    backdrop-filter: blur(8px);
+    color: #e9e9ff;
+    z-index: 1000;
+}
+
+.sheet[hidden] {
+    display: none !important;
+}
+
+.sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(160, 160, 220, .2);
+}
+
+.sheet .close {
+    background: transparent;
+    color: #e9e9ff;
+    border: 0;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* ===== PIXIE Log bubbles ===== */
+.pixie-log {
+    padding: 10px 12px;
+    height: min(40vh, 360px);
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    /* 최신이 아래로 쌓임 (위로 쌓이게 하려면 column-reverse) */
+    gap: 8px;
+}
+
+.pixie-msg {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    animation: pixie-pop .18s ease-out;
+}
+
+.pixie-ava {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(60% 60% at 50% 45%, #ffd6ff, #a78bfa 60%, #6ee7b7 100%);
+    box-shadow: 0 0 6px rgba(255, 255, 255, .25);
+    font-size: 13px;
+}
+
+.pixie-bubble {
+    max-width: 92%;
+    background: rgba(40, 40, 56, .85);
+    border: 1px solid rgba(160, 160, 220, .25);
+    color: #e9e9ff;
+    padding: 8px 10px;
+    border-radius: 12px 12px 12px 4px;
+    line-height: 1.35;
+    font-size: 13px;
+    backdrop-filter: blur(4px);
+}
+
+.pixie-bubble .meta {
+    display: inline-block;
+    margin-right: 6px;
+    opacity: .7;
+    font-size: 11px;
+}
+
+/* 톤 컬러 */
+.pixie-bubble .event {
+    color: #c7f9cc;
+}
+
+/* 좋은 소식/보상 */
+.pixie-bubble .warn {
+    color: #ffd166;
+}
+
+/* 진행/안내 */
+.pixie-bubble .err {
+    color: #ffadad;
+}
+
+/* 에러/경고 */
+
+@keyframes pixie-pop {
+    from {
+        transform: translateY(3px);
+        opacity: .0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 열기 버튼 가벼운 스타일(선택) */
+#logDock {
+    position: fixed;
+    right: 16px;
+    bottom: calc(16px + 46vh);
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(160, 160, 220, .25);
+    background: rgba(20, 20, 28, .85);
+    color: #e9e9ff;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+}

@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Data Roguelike RPG — PIXIE</title>
     <link rel="stylesheet" href="./src/style.css">
+    <link rel="stylesheet" href="./src/story-bubble.css">
+
 </head>
 
 <body>
@@ -17,14 +19,16 @@
             <span id="exitHint" hidden>Exit?</span>
         </div>
         <div class="right">
-            <button id="pixieBtn" class="icon">🤖</button>
+            <!-- ▼ 이 버튼이 PIXIE 로그 열기 버튼을 겸함 -->
+            <button id="pixieBtn" class="icon" aria-controls="logSheet" aria-expanded="false"
+                title="PIXIE 기록 열기">🤖</button>
             <span id="gold">0G</span>
         </div>
     </header>
 
     <!-- 컨텐츠: 방 카드 + 전투 무대 -->
     <section id="roomCard" class="card">
-        <h2 id="roomName">안녕 ! 나는 P.I.X.I.E(Personal Indexing eXfiltration Interface.)야! 탐사를 시작하려면 사진을 불러와줘!</h2>
+        <h2 id="roomName">안녕 ! 나는 P.I.X.I.E(Personal Indexing eXfiltration Interface.)야! 탐사를 시작하려면 추억이 담긴 사진을 불러와줘!</h2>
         <p id="roomDesc">하단의 “기억을 불러오기”를 눌러 탐사자를 소환해보자!</p>
     </section>
 
@@ -55,7 +59,6 @@
     <!-- 스탯·태그 -->
     <section id="stats" class="stats"></section>
     <section id="tags" class="tags"></section>
-    <!-- ❌ 불필요한 </main> 제거 -->
 
     <!-- 하단 액션바 -->
     <footer class="bottombar">
@@ -66,10 +69,16 @@
         <button id="bagBtn" class="ghost">가방</button>
     </footer>
 
-    <!-- 로그 시트 -->
-    <aside id="logSheet" class="sheet" hidden>
-        <pre id="log"></pre>
+    <!-- ▼▼▼ PIXIE 말풍선 로그 시트 (교체됨) ▼▼▼ -->
+    <aside id="logSheet" class="sheet" hidden aria-hidden="true" role="dialog" aria-label="PIXIE 로그">
+        <div class="sheet-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <strong>PIXIE 대화 기록</strong>
+            <button class="close" data-close="#logSheet" aria-label="닫기">✕</button>
+        </div>
+        <!-- 말풍선 로그 영역 -->
+        <div id="log" class="pixie-log" aria-live="polite" aria-atomic="false"></div>
     </aside>
+    <!-- ▲▲▲ PIXIE 말풍선 로그 시트 ▲▲▲ -->
 
     <!-- 맵 오버레이 -->
     <aside id="mapOverlay" class="overlay" hidden>
@@ -82,20 +91,67 @@
 
     <!-- 가방 시트 (장비/소모/유물) -->
     <aside id="bagSheet" class="sheet" hidden>
+        <!-- 상단바 + 닫기 -->
+        <div class="sheet-header">
+            <strong>가방</strong>
+            <button class="sheet-close" aria-label="가방 닫기" data-close="#bagSheet">✕</button>
+        </div>
+
         <nav class="tabs">
             <button data-tab="equip" class="active">장비</button>
             <button data-tab="consum">소모품</button>
             <button data-tab="relics">유물</button>
         </nav>
+
         <div id="equipSlots" class="panel"></div>
         <div id="itemsList" class="panel" hidden></div>
         <div id="relics" class="panel" hidden></div>
     </aside>
+    <!-- ===== Vault Panel (백업 캐시 금고) ===== -->
+    <div id="vaultSheet" class="sheet" hidden aria-hidden="true" role="dialog" aria-label="백업 캐시 금고">
+        <div class="sheet-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <h3 style="margin:0;font-size:18px;">백업 캐시 금고</h3>
+            <button class="close" data-close="#vaultSheet" aria-label="닫기">닫기</button>
+        </div>
+
+        <div id="vaultList" class="shop-grid"
+            style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px;">
+            <!-- JS가 카드 3개를 채움 -->
+        </div>
+
+        <div class="muted" style="margin-top:10px;font-size:12px;" id="vaultHint">
+            1개 선택 (보유 Vault Key면 2개 선택 가능). 재롤 1회 가능.
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+            <button id="vaultRerollBtn" class="ghost">재롤(10G 또는 조각 1개)</button>
+            <span class="tag" id="vaultPicksLeft">남은 선택: 1</span>
+            <span class="tag" id="vaultShards">조각: 0</span>
+            <span class="tag" id="vaultKeys">Keys: 0</span>
+        </div>
+    </div>
+
+    <!-- ===== Shop Panel (패치 키오스크) ===== -->
+    <div id="shopSheet" class="sheet" hidden aria-hidden="true">
+        <div class="sheet-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <h3 style="margin:0;font-size:18px;">패치 키오스크</h3>
+            <button class="close" data-close="#shopSheet" aria-label="닫기">닫기</button>
+        </div>
+
+        <div id="shopList" class="shop-grid"
+            style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px;">
+            <!-- JS가 카드 3개를 채움 -->
+        </div>
+
+        <div id="shopHint" class="muted" style="margin-top:10px;font-size:12px;">
+            골드는 상단 표시를 확인하세요. 패널을 닫으면 다음 방으로 진행합니다.
+        </div>
+    </div>
 
     <!-- 시드 업로드 팝업 2개 -->
     <dialog id="seedPopupA" hidden>
         <h3>시드 매핑실 — 경로 시드</h3>
-        <p>다음 트리의 경로를 설계할 사진을 업로드해줘.</p>
+        <p>다음 트리의 경로를 설계를 도와줄 너의 주변 사람의 사진을 업로드해줘.</p>
         <input id="seedFileA" type="file" accept="image/*" />
         <menu>
             <button data-close="#seedPopupA">취소</button>
@@ -105,7 +161,7 @@
 
     <dialog id="seedPopupB" hidden>
         <h3>시드 매핑실 — 환경 시드</h3>
-        <p>층의 분위기/이벤트 경향을 정할 사진을 업로드해줘.</p>
+        <p>층의 분위기/이벤트 환경을 정할 멋진 풍경 사진을 업로드해줘.</p>
         <input id="seedFileB" type="file" accept="image/*" />
         <menu>
             <button data-close="#seedPopupB">취소</button>
@@ -121,8 +177,6 @@
             <button class="close" data-close="#dialoguePanel">닫기</button>
         </div>
     </aside>
-
-
 
     <!-- 인트로 오버레이 -->
     <aside id="intro" class="intro" hidden aria-hidden="true">
@@ -142,7 +196,40 @@
             <button id="skipIntro" class="intro-skip">건너뛰기</button>
         </div>
     </aside>
+
+    <!-- 메인 스크립트 -->
     <script src="./src/main.js"></script>
+
+    <!-- (선택) PIXIE 로그 버튼 토글만 보조: main.js가 이미 처리 중이면 생략해도 OK -->
+    <script>
+        (function () {
+            const btn = document.getElementById('pixieBtn');
+            const sheet = document.getElementById('logSheet');
+            if (!btn || !sheet) return;
+            btn.addEventListener('click', () => {
+                const isHidden = sheet.hasAttribute('hidden');
+                if (isHidden) {
+                    sheet.hidden = false;
+                    sheet.removeAttribute('aria-hidden');
+                    btn.setAttribute('aria-expanded', 'true');
+                } else {
+                    sheet.setAttribute('hidden', '');
+                    sheet.setAttribute('aria-hidden', 'true');
+                    btn.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }());
+    </script>
+    <!-- ▼ PIXIE 스토리 말풍선(로그와 별개) -->
+    <aside id="storyBubble" class="story-bubble" hidden aria-hidden="true" aria-live="polite">
+        <div class="bubble">
+            <div class="pixie-badge">P.I.X.I.E</div>
+            <p id="storyText">...</p>
+            <button id="storyClose" class="ghost" title="닫기">닫기</button>
+        </div>
+    </aside>
+    <script src="./src/story-bubble.js"></script>
+
 </body>
 
 </html>
