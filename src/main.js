@@ -449,8 +449,8 @@ function setSpritesForBattle() {
 /* ===== 적 스케일 산출 ===== */
 function calcEnemyStats(isBoss = false) {
     const base = isBoss
-        ? { HP: 140, ATK: 12, DEF: 8, SPD: 7 }
-        : { HP: 90, ATK: 8, DEF: 6, SPD: 6 };
+        ? { HP: 170, ATK: 30, DEF: 15, SPD: 7 }
+        : { HP: 110, ATK: 12, DEF: 9, SPD: 6 };
 
     // 층수 스케일(기존 계단식)
     const floorMul = 1 + 0.16 * Math.floor(state.floor / 5);
@@ -461,7 +461,7 @@ function calcEnemyStats(isBoss = false) {
     const ratio = clamp(cur / ref, 0.75, 1.50); // 튐 방지
 
     // 따라붙기 강도(일반 20%, 보스 35%)
-    const alpha = isBoss ? 0.35 : 0.20;
+    const alpha = isBoss ? 0.45 : 0.30;
 
     // 최종 스케일
     const scale = floorMul * (1 + alpha * (ratio - 1));
