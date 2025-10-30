@@ -1,5 +1,5 @@
 /* ================================
-   app.js — PIXIE Prototype (Full)
+   app.js — PIXIE Prototype (Full, fixed)
    ================================ */
 
 /* ---------- 페이즈/옵션 ---------- */
@@ -29,8 +29,7 @@ const state = {
     seeds: { floor: null, path: null, env: null },
 
     temp: {},
-
-    turnLock: false, // 내/적 턴 진행 중 입력 잠금
+    turnLock: false,
     reviveUsed: false,
 };
 
@@ -40,12 +39,9 @@ function openIntro() {
     if (!el) return;
     el.hidden = false;
     el.removeAttribute('aria-hidden');
-
     const skip = document.getElementById('skipIntro');
     if (skip) skip.onclick = closeIntro;
-
-    // 자동 종료 (매 새로고침 재생 — localStorage 플래그 쓰지 않음)
-    setTimeout(() => { closeIntro(); }, 4200);
+    setTimeout(closeIntro, 4200);
 }
 function closeIntro() {
     const el = document.getElementById('intro');
@@ -59,8 +55,7 @@ const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
 const SAVE_KEY = 'pixie_run_v1';
 const REF_BASE_POWER = 220;
-
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 
 /* xorshift32 */
 function makeRNG(seed) {
@@ -72,11 +67,12 @@ function makeRNG(seed) {
         return (x >>> 0) / 0xFFFFFFFF;
     };
 }
+
 /* ===== 엔딩 이미지 설정 & 프리로드 ===== */
 const ENDING_ASSETS = {
-    good: './assets/pixie_good.png',
-    normal: './assets/pixie_normal.png',
-    bad: './assets/pixie_bad.png',
+    good: './assets/pixie/pixie_good.png',
+    normal: './assets/pixie/pixie_normal.png',
+    bad: './assets/pixie/pixie_bad.png',
 };
 function preloadImg(src) {
     return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
@@ -89,24 +85,18 @@ function computeEndingKey() {
     return 'normal';
 }
 async function openEnding(endingKey = 'normal') {
-    // 배경 이미지 먼저 프리로드
     const imgSrc = ENDING_ASSETS[endingKey] || ENDING_ASSETS.normal;
     try { await preloadImg(imgSrc); } catch { }
 
-    // 전투/패널 닫기 & 상호작용 잠시 정지
     ['#mapOverlay', '#bagSheet', '#shopSheet', '#dialoguePanel', '#logSheet'].forEach(sel => {
         const el = document.querySelector(sel); if (el) el.setAttribute('hidden', '');
     });
     setPhase('intro');
 
-    // 오버레이 컨테이너
     const wrap = document.createElement('div');
     wrap.id = 'endingOverlay';
-    Object.assign(wrap.style, {
-        position: 'fixed', inset: '0', zIndex: '3000', overflow: 'hidden'
-    });
+    Object.assign(wrap.style, { position: 'fixed', inset: '0', zIndex: '3000', overflow: 'hidden' });
 
-    // ★ 배경: PNG를 꽉 채워서 cover
     const bg = document.createElement('div');
     Object.assign(bg.style, {
         position: 'absolute', inset: '0',
@@ -115,14 +105,12 @@ async function openEnding(endingKey = 'normal') {
         filter: 'saturate(1.05) contrast(1.02)'
     });
 
-    // 어둡게 깔기(텍스트 가독성)
     const dim = document.createElement('div');
     Object.assign(dim.style, {
         position: 'absolute', inset: '0',
         background: 'linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.6))'
     });
 
-    // 카드
     const card = document.createElement('div');
     Object.assign(card.style, {
         position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
@@ -153,7 +141,6 @@ async function openEnding(endingKey = 'normal') {
         p1.textContent = '“조금 모자랐어… 하지만 실패도 네 이야기의 일부야.”';
         p2.textContent = '“다시 시작해보자.”';
     } else {
-        // normal
         p1.textContent = '“여기까지 왔네. 완벽하진 않지만 충분히 아름다웠어.”';
         p2.textContent = '“지금 나갈 수도, 이 세계를 계속 탐험할 수도 있어.”';
     }
@@ -161,7 +148,6 @@ async function openEnding(endingKey = 'normal') {
     const row = document.createElement('div');
     Object.assign(row.style, { display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' });
 
-    // 버튼 스타일
     const btnPrimary = (label, onClick) => {
         const b = document.createElement('button'); b.textContent = label;
         Object.assign(b.style, {
@@ -179,36 +165,25 @@ async function openEnding(endingKey = 'normal') {
         b.onclick = onClick; return b;
     };
 
-    // 공통 동작
-    function closeEnding() {
-        document.getElementById('endingOverlay')?.remove();
-    }
-    function exitToIntro() {
-        closeEnding();
-        restartRun(true); // 저장 초기화 + 처음화면
-    }
+    function closeEnding() { document.getElementById('endingOverlay')?.remove(); }
+    function exitToIntro() { closeEnding(); restartRun(true); }
 
     if (endingKey === 'good') {
-        // 나가기 중심
         row.append(
             btnPrimary('나가기', exitToIntro),
             btnGhost('PIXIE 로그', () => { document.querySelector('#logSheet')?.removeAttribute('hidden'); })
         );
     } else if (endingKey === 'bad') {
-        // 다시 시작만
         row.append(
             btnPrimary('처음부터', exitToIntro),
             btnGhost('PIXIE 로그', () => { document.querySelector('#logSheet')?.removeAttribute('hidden'); })
         );
     } else {
-        // normal: 선택지 — 엔드리스 / 나가기 / 로그
         const endlessBtn = btnPrimary('엔드리스로 계속', async () => {
-            // 엔드리스 플래그 켜고, 다음 층 생성해서 진행
             state.endless = true;
             closeEnding();
             try {
                 await buildNextFloor(state.seeds.path, state.seeds.env);
-                // L5에서 더 안 오르도록 유지: fidelity는 고정, floor만 증가
                 document.getElementById('floor').textContent = state.map?.id || `F${state.floor}-α`;
                 log('엔드리스: 다음 층으로 이동');
                 enterRoom(state.map.startNodeId);
@@ -217,7 +192,6 @@ async function openEnding(endingKey = 'normal') {
                 log('엔드리스 전환 오류: ' + e?.message);
             }
         });
-
         row.append(
             endlessBtn,
             btnGhost('나가기', exitToIntro),
@@ -337,9 +311,8 @@ function metaToStats(meta) {
     const HP = clamp(Math.round(50 + sizeKB / 30 + meta.minSide / 100), 40, 240);
     const ATK = clamp(Math.round(5 + nameLen * 1.5 + atkImg), 5, 130);
     const DEF = 5 + (meta.type.includes('png') ? 3 : meta.type.includes('webp') ? 3 : meta.type.includes('heic') ? 2 : 1);
-    const SPD = 10 + (Math.abs(meta.aspect - 1) > 0.6 ? 2 : 0)
-        + ((meta.hsvAvg.h > 200 && meta.hsvAvg.h < 260) ? 2
-            : (meta.hsvAvg.h < 40 || meta.hsvAvg.h > 330) ? 1 : 0);
+    const SPD = 10 + (Math.abs(meta.aspect - 1) > 0.6 ? 2 : 0) +
+        ((meta.hsvAvg.h > 200 && meta.hsvAvg.h < 260) ? 2 : (meta.hsvAvg.h < 40 || meta.hsvAvg.h > 330) ? 1 : 0);
 
     const seed = parseInt(meta.hash.slice(0, 8), 16) >>> 0;
     const rng = makeRNG(seed);
@@ -352,12 +325,8 @@ function metaToStats(meta) {
 /* ================================
    PIXIE Log (from scratch)
    ================================ */
-
 const PIXIE_BUF = []; // { text, tone, badge, time }
-
-function escapeHTML(s = '') {
-    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+function escapeHTML(s = '') { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function pickTone(s) {
     if (/오류|ERROR|탈락|경고|DEF -|에러|실패/.test(s)) return 'err';
     if (/격파|보상|유물|회복|골드|\+|획득|성공/.test(s)) return 'event';
@@ -379,12 +348,11 @@ function renderPixieLog() {
 }
 function pixieSay(text, { tone = 'event', badge = 'PIXIE' } = {}) {
     const now = new Date();
-    const time = now.toTimeString().slice(0, 5); // HH:MM
+    const time = now.toTimeString().slice(0, 5);
     PIXIE_BUF.push({ text, tone, badge, time });
     if (PIXIE_BUF.length > 200) PIXIE_BUF.shift();
     renderPixieLog();
 }
-/* 게임 코드 별칭 */
 function log(t) {
     const decorated = String(t)
         .replace(/^격파:/, '🌸 격파:')
@@ -437,7 +405,7 @@ function calcCharPower(stats) {
     return Math.round(base + critB);
 }
 
-/* ===== 유효 스탯 (장비/룬/함정 반영) & HP 상한 ===== */
+/* ===== 유효 스탯 & HP 상한 ===== */
 function getYouStats() {
     if (!state.char) return { ATK: 0, DEF: 0, CRIT: 0, HPmax: 0, runeEcho: 0 };
     const base = state.char.stats;
@@ -449,7 +417,6 @@ function getYouStats() {
     const DEF = base.DEF + (arm.def || 0) - (state.char.trapDEF || 0);
     const CRIT = base.CRIT + (wep.crit || 0);
     const HPmax = base.HP + (arm.hp || 0);
-
     return { ATK, DEF, CRIT, HPmax, runeEcho: (rune.echo || 0) };
 }
 function clampYouHP() {
@@ -529,7 +496,7 @@ function equipAndAutoDisassemble(eq) {
     if (prev) { state.gold += prev.sell; log(`[장비] ${eq.slot} 교체: 이전 ${prev.tier} 분해 (+${prev.sell}G)`); }
     state.equip[eq.slot] = eq;
     updateGoldUI(); renderEquipUI();
-    clampYouHP(); updateHPBars(); // 장비 교체 시 HP 상한 동기화
+    clampYouHP(); updateHPBars();
     save();
 }
 function updateGoldUI() { const g = $('#gold'); if (g) g.textContent = `${state.gold}G`; }
@@ -572,12 +539,11 @@ async function buildTutorialFloor(seedHex) {
 }
 async function buildNextFloor(pathHash, envHash) {
     const r = makeRNG(parseInt(pathHash.slice(0, 8), 16) ^ parseInt(envHash.slice(0, 8), 16));
-    const LAYERS = 5 + Math.floor(r() * 2);    // 5~6
+    const LAYERS = 5 + Math.floor(r() * 2);
     const FANOUT_MIN = 2, FANOUT_MAX = 3;
     const typesPool = ['battle', 'battle', 'reward', 'trap', 'shop', 'event'];
 
-    const nodes = [];
-    const edges = [];
+    const nodes = [], edges = [];
     const idOf = (layer, idx) => `n${layer}_${idx}`;
 
     for (let layer = 0; layer < LAYERS; layer++) {
@@ -617,15 +583,14 @@ function roomDesc(type) {
         case 'shop': return '임시 패치 서버가 열려 있어. 골드로 옵션을 적용하자.';
         case 'event': return '로그의 빈칸이 남아 있어. 조각이 맞으면 문장이 완성돼.';
         case 'boss': return '이 트리의 관리자 데몬이 지키고 있어. 접근 권한을 빼앗아야 해.';
-        case 'exit': return '다음 층으로 이어지는 포트가 숨어 있어. 시그니처를 맞추면 열린다.';
+        case 'exit': return '다음 층으로 이어주는 포트가 숨어 있어. 시그니처를 맞추면 열린다.';
         default: return '';
     }
 }
+/* 말풍선 확률: 튜토리얼은 항상, 그 외 35% (게임 RNG 소비 금지) */
 function shouldNarrateRoom() {
-    // 튜토리얼은 항상 안내
     if (state?.map?.id === 'TUT') return true;
-    const r = state.char?.rng || Math.random;
-    return r() < 0.35; // 35% 확률
+    return Math.random() < 0.35;
 }
 
 function enterRoom(nodeId) {
@@ -640,83 +605,77 @@ function enterRoom(nodeId) {
 
     if (first) {
         state.visited.add(key);
-        if (shouldNarrateRoom()) {
-            if (state.room.type === 'battle' || state.room.type === 'boss') {
-                spawnEnemy(state.room.type === 'boss');
-            } else if (state.room.type === 'reward') {
-                openReward();
-            } else if (state.room.type === 'trap') {
-                applyTrap();
-            } else if (state.room.type === 'shop') {
-                openShop();
-            } else if (state.room.type === 'event') {
-                openEvent();
-            } else if (state.room.type === 'exit') {
-                openExit();
-            }
-            const t = state.room.type;
+
+        // ✅ 핵심 액션: 항상 실행
+        if (state.room.type === 'battle' || state.room.type === 'boss') {
+            spawnEnemy(state.room.type === 'boss');
+        } else if (state.room.type === 'reward') {
+            openReward();
+        } else if (state.room.type === 'trap') {
+            applyTrap();
+        } else if (state.room.type === 'shop') {
+            openShop();
+        } else if (state.room.type === 'event') {
+            openEvent();
+        } else if (state.room.type === 'exit') {
+            openExit();
+        }
+
+        // ✅ 말풍선: 보스는 항상, 그 외는 확률
+        const t = state.room.type;
+        const narrate = (t === 'boss') || shouldNarrateRoom();
+        if (narrate) {
             if (t === 'battle') storyAt('room_bat_' + nodeId, '잔향체 냄새가 나… 먼저 정리하자.', {
                 autohide: 2400,
                 avatar: {
                     src: window.pickPose?.('talk_a', { random: false }) || './assets/pixie/talk_a.png',
-                    position: 'left',   // 'left' | 'bottom'
-                    size: 118,          // px
-                    radius: 16,         // px
-                    alt: 'PIXIE — 대화'
+                    position: 'left', size: 118, radius: 16, alt: 'PIXIE — 대화'
                 }
             });
             if (t === 'event') storyAt('room_evt_' + nodeId, '파편 아카이브다! 조건에 맞는 기억이면 로그를 되살릴 수 있어 ପ(˶•-•˶)ଓ ♡', {
                 autohide: 2400,
                 avatar: {
                     src: window.pickPose?.('surprised', { random: false }) || './assets/pixie/surprised.png',
-                    position: 'left',   // 'left' | 'bottom'
-                    size: 118,          // px
-                    radius: 16,         // px
-                    alt: 'PIXIE — 놀람'
+                    position: 'left', size: 118, radius: 16, alt: 'PIXIE — 놀람'
                 }
             });
             if (t === 'reward') storyAt('room_rwd_' + nodeId, '백업 캐시 금고 발견( σ̴̶̷̤ .̫ σ̴̶̷̤ ) 적합한 추억으로 장비를 강화할 수 있어!', {
                 autohide: 2400,
                 avatar: {
                     src: window.pickPose?.('surprised', { random: false }) || './assets/pixie/surprised.png',
-                    position: 'left',   // 'left' | 'bottom'
-                    size: 118,          // px
-                    radius: 16,         // px
-                    alt: 'PIXIE — 놀람'
+                    position: 'left', size: 118, radius: 16, alt: 'PIXIE — 놀람'
                 }
             });
-            if (t === 'trap') storyAt('room_trp_' + nodeId, '조심해. 이 구간 메모리가 찢어져 있어.', { theme: 'pink' }, {
-                autohide: 2400,
+            if (t === 'trap') storyAt('room_trp_' + nodeId, '조심해. 이 구간 메모리가 찢어져 있어.', {
+                theme: 'pink', autohide: 2400,
                 avatar: {
                     src: window.pickPose?.('serious', { random: false }) || './assets/pixie/serious.png',
-                    position: 'left',   // 'left' | 'bottom'
-                    size: 118,          // px
-                    radius: 16,         // px
-                    alt: 'PIXIE — 진지'
+                    position: 'left', size: 118, radius: 16, alt: 'PIXIE — 진지'
                 }
             });
             if (t === 'shop') storyAt('room_shp_' + nodeId, '패치 키오스크 온라인. 장비/회복/룬을 준비해.', {
                 autohide: 2400,
                 avatar: {
                     src: window.pickPose?.('talk_a', { random: false }) || './assets/pixie/talk_a.png',
-                    position: 'left',   // 'left' | 'bottom'
-                    size: 118,          // px
-                    radius: 16,         // px
-                    alt: 'PIXIE — 대화'
+                    position: 'left', size: 118, radius: 16, alt: 'PIXIE — 대화'
                 }
             });
             if (t === 'boss') storyAt('room_bos_' + nodeId, '조심해!! 관리자 데몬이야!!', {
                 autohide: 2400,
                 avatar: {
                     src: window.pickPose?.('serious', { random: false }) || './assets/pixie/serious.png',
-                    position: 'left',   // 'left' | 'bottom'
-                    size: 118,          // px
-                    radius: 16,         // px
-                    alt: 'PIXIE — 진지'
+                    position: 'left', size: 118, radius: 16, alt: 'PIXIE — 진지'
+                }
+            });
+            if (t === 'exit') storyAt('room_ext_' + nodeId, '포트가 보여. 시드 두 개가 필요해.', {
+                autohide: 2200,
+                avatar: {
+                    src: window.pickPose?.('talk_a', { random: false }) || './assets/pixie/talk_a.png',
+                    position: 'left', size: 108, radius: 14, alt: 'PIXIE — 대화'
                 }
             });
         }
-        if (t === 'exit') storyAt('room_ext_' + nodeId, '포트가 보여. 시드 두 개가 필요해.');
+
     } else {
         log(`소거된 잔향: ${state.room.name} (이벤트 없음)`);
     }
@@ -772,15 +731,18 @@ function renderMapOverlay() {
     host.innerHTML = '';
     host.appendChild(list);
 }
-$('#mapGraph').addEventListener('click', (e) => {
-    const li = e.target.closest('li[data-node]');
-    if (!li) return;
-    const id = li.dataset.node;
-    if (li.classList.contains('locked')) { log('이 경로는 아직 닿을 수 없어.'); return; }
-    if (id === state.room?.id) { $('#mapOverlay').hidden = true; return; }
-    $('#mapOverlay').hidden = true;
-    enterRoom(id);
-});
+const mapGraphEl = $('#mapGraph');
+if (mapGraphEl) {
+    mapGraphEl.addEventListener('click', (e) => {
+        const li = e.target.closest('li[data-node]');
+        if (!li) return;
+        const id = li.dataset.node;
+        if (li.classList.contains('locked')) { log('이 경로는 아직 닿을 수 없어.'); return; }
+        if (id === state.room?.id) { $('#mapOverlay').hidden = true; return; }
+        $('#mapOverlay').hidden = true;
+        enterRoom(id);
+    });
+}
 $('#mapDock')?.addEventListener('click', () => { renderMapOverlay(); $('#mapOverlay').hidden = false; });
 
 function advanceFlow(delay = 0) {
@@ -791,20 +753,14 @@ function advanceFlow(delay = 0) {
         log('다음 폴더를 선택해줘.');
     }, delay);
 }
-/* ===== 데미지 감쇠 커브(ATK 변화 민감도 완화) ===== */
-// 결과 범위 예시: 6 ~ 24 사이(상수로 튜닝 가능)
-function softDamageAgainst(ATK, DEF) {
-    // 튜닝 상수
-    const BASE = 8;          // 최소 기반 피해
-    const SPAN = 20;         // 추가로 벌어질 수 있는 범위 (BASE+SPAN=상한)
-    const K_ATK = 0.90;      // ATK 효과 완화
-    const C_DEF = 1.20;      // DEF 효율(높을수록 방어가 잘 먹힘)
-    const BIAS = 22;         // 분모 바이어스(초저스탯 폭주 방지)
 
+/* ===== 데미지 감쇠 커브 ===== */
+function softDamageAgainst(ATK, DEF) {
+    const BASE = 8, SPAN = 20, K_ATK = 0.90, C_DEF = 1.20, BIAS = 22;
     const num = ATK * K_ATK;
     const den = (ATK * K_ATK) + (DEF * C_DEF) + BIAS;
-    const ratio = den > 0 ? num / den : 0;       // 0~1
-    const dmg = BASE + SPAN * ratio;             // BASE ~ BASE+SPAN
+    const ratio = den > 0 ? num / den : 0;
+    const dmg = BASE + SPAN * ratio;
     return Math.max(1, Math.round(dmg));
 }
 
@@ -816,12 +772,9 @@ function setSpritesForBattle() {
     $('#enemySprite').src = svgDataURL({ hue: enHue, role: 'enemy' });
 }
 function calcEnemyStats(isBoss = false) {
-    const base = isBoss
-        ? { HP: 170, ATK: 30, DEF: 15, SPD: 7 }
+    const base = isBoss ? { HP: 170, ATK: 30, DEF: 15, SPD: 7 }
         : { HP: 110, ATK: 12, DEF: 9, SPD: 6 };
-
     const floorMul = 1 + 0.16 * Math.floor(state.floor / 5);
-
     const ref = state.char?.powerRef || REF_BASE_POWER;
     const cur = state.char?.powerInit || ref;
     const ratio = clamp(cur / ref, 0.70, 1.40);
@@ -886,48 +839,38 @@ $('#attackBtn').addEventListener('click', () => {
     const you = state.char, en = state.enemy;
     const r = you.rng;
 
-    // ✅ 감쇠 커브로 기본 피해 산출(변화폭 완화)
     const basePerHit = softDamageAgainst(eff.ATK, en.stats.DEF);
-
-    // ✅ 크리티컬 효율도 완만하게(기존 1.7 → 1.25)
     const isCrit = (r() * 100) < eff.CRIT;
     const critMul = isCrit ? 1.25 : 1.0;
 
-    // ✅ 스킬 영향 축소
     let skillMul = 1.0, hits = 1;
     switch (you.stats.skill) {
         case 'Heavy Strike': {
-            // 1.05 ~ 1.20 (기존보다 좁고 낮음)
             skillMul = 1.05 + r() * 0.15;
             break;
         }
         case 'Echo Barrage': {
-            // 다타 경감: 2~3타 고정, 각 타 데미지는 동일
             hits = 2 + Math.floor(r() * 2); // 2~3
             break;
         }
         case 'Fragment Surge': {
-            // SPD 기여 축소(기존 SPD/200 → SPD/500, 상한 1.15)
             const surge = 1 + Math.min(you.stats.SPD / 500, 0.15);
             skillMul = surge;
             break;
         }
     }
 
-    // ✅ 데미지 분산폭 축소(±7% → 변동 적게)
     const vary = n => {
-        const v = 0.07 * (r() * 2 - 1); // -7% ~ +7%
+        const v = 0.07 * (r() * 2 - 1);
         return Math.round(n * (1 + v));
     };
 
-    // 합산
     let total = 0;
     for (let i = 0; i < hits; i++) {
         const per = vary(Math.round(basePerHit * skillMul * critMul));
         total += Math.max(1, per);
     }
 
-    // ✅ 룬 잔향도 살짝 너프(50% → 35% 추가)
     if (eff.runeEcho > 0 && r() < eff.runeEcho) {
         const echo = Math.max(1, Math.round(total * 0.35));
         total += echo;
@@ -986,60 +929,34 @@ function onEnemyDown() {
     advanceFlow(650);
 }
 function onPlayerDown() {
-    // ★ 1회 한정 픽시 부활
     if (!state.reviveUsed) {
         state.reviveUsed = true;
-
-        // 부활 HP: 최대체력의 40% (최소 1)
         const eff = getYouStats();
         const reviveHP = Math.max(1, Math.floor(eff.HPmax * 0.4));
         state.char.hp = reviveHP;
-
-        // 혹시 남아있을 페널티/잠금 완화
-        state.char.trapDEF = 0;          // 함정 페널티 해제
+        state.char.trapDEF = 0;
         state.turnLock = false;
         $('#attackBtn').disabled = false;
-
         updateHPBars();
-
-        // 픽시 스토리 버블 (분리된 story-bubble.js 사용)
         if (window.story) {
-            window.story('이번 한 번은 나의 힘으로 너의 소중한 파일을 지켜줄게!', {
-                icon: '✨', duration: 2600, pos: 'center'
-            });
+            window.story('이번 한 번은 나의 힘으로 너의 소중한 파일을 지켜줄게!', { icon: '✨', duration: 2600, pos: 'center' });
         }
         log('부활: PIXIE 보호 발동 (HP 40% 회복)');
-
-        // 전투 계속 진행 (턴은 플레이어에게)
         return;
     }
 
-    // ★ 두 번째 사망: 재시작 안내
     log('탈락: 탐사자 다운');
 
-    // 픽시 우는 표정 말풍선 (아바타 이미지 포함)
-    storyAt(
-        'down_fail',
-        '미안… 이번에는 지키지 못했어.',
-        {
-            theme: 'pink',
-            autohide: 2200,
-            avatar: {
-                // pickPose가 있으면 cry 포즈 사용, 없으면 기본 경로 사용
-                src: (window.pickPose && window.pickPose('cry')) || './assets/pixie/cry.png',
-                position: 'left',   // 'left' 또는 'bottom'
-                size: 116,          // px
-                radius: 14,         // px
-                alt: 'PIXIE — 눈물'
-            }
+    storyAt('down_fail', '미안… 이번에는 지키지 못했어.', {
+        theme: 'pink', autohide: 2200,
+        avatar: {
+            src: (window.pickPose && window.pickPose('cry', { random: false })) || './assets/pixie/cry.png',
+            position: 'left', size: 116, radius: 14, alt: 'PIXIE — 눈물'
         }
-    );
+    });
 
-    // 입력 막고 버튼도 비활성화
     state.turnLock = true;
     $('#attackBtn').disabled = true;
-
-    // 재시작 버튼 표시
     setTimeout(showRestartPrompt, 600);
 }
 
@@ -1093,43 +1010,8 @@ function checkMemoryWish(meta, wish) {
 }
 
 /* ---------- 방 이벤트 ---------- */
-function openReward() {
-    storyAt('vault_hint_' + state.map.id, '캐시 금고: 업로드한 추억으로 <b>능력치가 계산</b>돼. 장비 교체 시 이전 장비는 분해돼 골드로 돌아와.');
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*'; input.style.display = 'none';
-    document.body.appendChild(input);
+// (오래된 openReward 구현은 제거하고, 아래 Vault 버전만 사용)
 
-    const done = (msg = null) => {
-        if (msg) log(msg);
-        input.remove();
-        advanceFlow(450);
-    };
-
-    input.onchange = async e => {
-        const f = e.target.files?.[0];
-        if (!f) return done('금고 취소… 다음 경로를 골라줘!');
-        try {
-            const meta = await analyzeImage(f);
-            const slot = ['weapon', 'armor', 'rune'][Math.floor(state.char.rng() * 3)];
-            const eq = makeEquipmentFromImage(meta, slot, 'reward', state.floor);
-            const msg = `${eq.tier} ${slot} 장착 시 이전 장비는 자동 분해(+${eq.sell}G).\n진행할까요?`;
-            if (confirm(msg)) {
-                equipAndAutoDisassemble(eq);
-                log(`금고 보상: ${eq.tier} ${slot} 장착 완료! [${meta.name}]`);
-            } else {
-                log('금고 보상 취소—다음에 더 좋은 기회를 노려보자!');
-            }
-            updateGoldUI(); clampYouHP(); updateHPBars?.();
-            done();
-        } catch {
-            log(`오류: 보상 처리 중 문제 발생`);
-            done();
-        }
-    };
-
-    log('백업 캐시 금고: 너의 추억을 넣어 장비로 정제할 수 있어! (무작위 슬롯)');
-    input.click();
-}
 function openEvent() {
     const panel = $('#dialoguePanel');
     const lines = $('#dialogueLines');
@@ -1194,11 +1076,11 @@ function openEvent() {
         log(`아카이브 복원: ${rewards.join(', ')}`);
 
         lines.innerHTML = `
-          <p><b>검증 결과</b></p>
-          <ul>${detail}</ul>
-          <p>${judge.ok ? '완벽해! 로그가 선명해졌어.' : '충분하진 않지만, 몇 조각은 채워졌어.'}</p>
-          <p><b>보상</b> — ${rewards.join(' / ')}</p>
-        `;
+      <p><b>검증 결과</b></p>
+      <ul>${detail}</ul>
+      <p>${judge.ok ? '완벽해! 로그가 선명해졌어.' : '충분하진 않지만, 몇 조각은 채워졌어.'}</p>
+      <p><b>보상</b> — ${rewards.join(' / ')}</p>
+    `;
         choices.innerHTML = '';
         const cont = document.createElement('button');
         cont.textContent = '계속';
@@ -1215,21 +1097,11 @@ function openEvent() {
     }
 }
 function applyTrap() {
-    // 소환 전 안전 가드
-    if (!state.char) {
-        pixieSay('시스템: 소환 전 함정 감지 — 효과는 보류됨.', { tone: 'warn' });
-        advanceFlow(350);
-        return;
-    }
-
-    // 스택 적용
+    if (!state.char) { pixieSay('시스템: 소환 전 함정 감지 — 효과는 보류됨.', { tone: 'warn' }); advanceFlow(350); return; }
     const prev = state.char.trapDEF || 0;
     state.char.trapDEF = prev + 1;
-
-    // PIXIE 로그에 확실히 남기기
     log('함정: 다음 전투에서 DEF -1 (1회)');
 
-    // 가벼운 현장 토스트(시트 안 열어도 보이게)
     const toast = document.createElement('div');
     toast.textContent = '🪤 함정 발동: 다음 전투 DEF -1 (1회)';
     Object.assign(toast.style, {
@@ -1246,7 +1118,6 @@ function applyTrap() {
 }
 
 function openShop() {
-    // 시트 먼저 연다(렌더 실패해도 패널은 떠 있게)
     const sheet = $('#shopSheet');
     if (sheet) { sheet.hidden = false; sheet.removeAttribute('aria-hidden'); storyAt('shop_open_' + state.floor, '필요한 패치를 고르자. 골드를 너무 아끼면 다음 방이 아플 수 있어.'); }
 
@@ -1273,7 +1144,6 @@ function openShop() {
         }
     };
 
-    // 티어 미리보기 제거
     const r = state.char?.rng || makeRNG(0x5a1e5);
     const slotPick = ['weapon', 'armor', 'rune'][Math.floor(r() * 3)];
     const slotC = {
@@ -1305,18 +1175,17 @@ function openShop() {
     try { renderShop(); }
     catch (err) {
         log('상점 렌더 중 오류. 기본 목록으로 재시도할게!');
-        // 최소 표시
         $('#shopList').innerHTML = `
-          <div class="card"><b>${slotA.name}</b><div class="muted">${slotA.desc}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:8px;">
-            <span class="tag">${slotA.cost}G</span><button data-buy="0">구매</button></div></div>
-          <div class="card"><b>${slotB.name}</b><div class="muted">${slotB.desc}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:8px;">
-            <span class="tag">${slotB.cost}G</span><button data-buy="1">구매</button></div></div>
-          <div class="card"><b>${slotC.name}</b><div class="muted">${slotC.desc}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:8px;">
-            <span class="tag">${slotC.cost}G</span><button data-buy="2">구매</button></div></div>
-        `;
+      <div class="card"><b>${slotA.name}</b><div class="muted">${slotA.desc}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span class="tag">${slotA.cost}G</span><button data-buy="0">구매</button></div></div>
+      <div class="card"><b>${slotB.name}</b><div class="muted">${slotB.desc}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span class="tag">${slotB.cost}G</span><button data-buy="1">구매</button></div></div>
+      <div class="card"><b>${slotC.name}</b><div class="muted">${slotC.desc}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+        <span class="tag">${slotC.cost}G</span><button data-buy="2">구매</button></div></div>
+    `;
         document.getElementById('shopList').onclick = (e) => {
             const btn = e.target.closest('button[data-buy]'); if (!btn) return;
             const offer = state.temp.shopOffers[+btn.dataset.buy];
@@ -1326,7 +1195,6 @@ function openShop() {
         };
     }
 
-    // 닫기 버튼은 한 번만 바인딩
     const closer = document.querySelector('#shopSheet .close[data-close="#shopSheet"]');
     if (closer && !closer._wired) {
         closer._wired = true;
@@ -1337,7 +1205,6 @@ function openShop() {
         });
     }
 }
-
 function renderShop() {
     const host = $('#shopList');
     if (!host) return;
@@ -1346,15 +1213,15 @@ function renderShop() {
     host.innerHTML = offers.map((o, i) => {
         const afford = state.gold >= o.cost;
         return `
-          <div class="card" data-offer="${i}" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="font-weight:700;display:flex;align-items:center;gap:8px;">${o.name}</div>
-            <div class="muted" style="font-size:13px;">${o.desc || ''}</div>
-            <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;">
-              <span class="tag">${o.cost}G</span>
-              <button data-buy="${i}" ${afford ? '' : 'disabled'}>${afford ? '구매' : '골드부족'}</button>
-            </div>
-          </div>
-        `;
+      <div class="card" data-offer="${i}" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-weight:700;display:flex;align-items:center;gap:8px;">${o.name}</div>
+        <div class="muted" style="font-size:13px;">${o.desc || ''}</div>
+        <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;">
+          <span class="tag">${o.cost}G</span>
+          <button data-buy="${i}" ${afford ? '' : 'disabled'}>${afford ? '구매' : '골드부족'}</button>
+        </div>
+      </div>
+    `;
     }).join('');
 
     host.onclick = (e) => {
@@ -1365,17 +1232,16 @@ function renderShop() {
         if (!offer) return;
         if (state.gold < offer.cost) { log('골드가 부족해.'); return; }
         try { offer.buy(); }
-        catch (err) { log('상점 구매 처리 중 오류가 있어.'); }
+        catch { log('상점 구매 처리 중 오류가 있어.'); }
     };
 }
 
-// ▼ 기존 openExit 전부 교체
+/* ---------- Exit ---------- */
 function openExit() {
     const D1 = $('#seedPopupA'), D2 = $('#seedPopupB');
     if (!D1 || !D2) { advanceFlow(300); return; }
 
-    D1.removeAttribute('hidden');
-    D1.showModal();
+    D1.removeAttribute('hidden'); D1.showModal();
 
     $('#seedOkA').onclick = async () => {
         const f = $('#seedFileA').files?.[0];
@@ -1383,10 +1249,8 @@ function openExit() {
         const ab = await f.arrayBuffer();
         state.seeds.path = await safeHashHex(ab);
 
-        D1.close();
-        D1.setAttribute('hidden', '');
-        D2.removeAttribute('hidden');
-        D2.showModal();
+        D1.close(); D1.setAttribute('hidden', '');
+        D2.removeAttribute('hidden'); D2.showModal();
     };
 
     $('#seedOkB').onclick = async () => {
@@ -1395,45 +1259,35 @@ function openExit() {
         const ab = await f.arrayBuffer();
         state.seeds.env = await safeHashHex(ab);
 
-        D2.close();
-        D2.setAttribute('hidden', '');
+        D2.close(); D2.setAttribute('hidden', '');
 
-        // 다음 층 생성
         await buildNextFloor(state.seeds.path, state.seeds.env);
 
-        // 진행 수치 갱신
         state.floor += 1;
         state.fidelity = Math.min(5, state.fidelity + 1);
 
-        // HUD 반영
-        const fid = $('#fidelity');
-        if (fid) fid.textContent = 'L' + state.fidelity;
+        const fid = $('#fidelity'); if (fid) fid.textContent = 'L' + state.fidelity;
 
         log('다음 층으로 이동');
 
-        // ★★★ 엔딩 트리거: L5 도달 시 분기
         if (state.fidelity >= 5) {
             try {
                 const key = computeEndingKey(); // good | normal | bad
-                // 엔딩 연출로 진입 (이 함수가 재시작/엔드리스/나가기 등 선택 처리)
-                await showEndingOverlay(key);
+                await openEnding(key);          // ✅ 존재하는 함수로 교체
             } catch (e) {
                 console.error(e);
-                // 혹시 엔딩 연출에서 오류나면 안전하게 맵으로 복귀
                 enterRoom(state.map.startNodeId);
             }
             save();
-            return; // 엔딩 분기 했으니 여기서 종료
+            return;
         }
 
-        // 평소처럼 다음 층 입장
         enterRoom(state.map.startNodeId);
         save();
     };
 }
 
-
-/* ---------- 공용 UI(시트 닫기/가방) ---------- */
+/* ---------- 공용 UI ---------- */
 document.addEventListener('click', e => {
     const t = e.target.closest('[data-close]'); if (!t) return;
     const sel = t.getAttribute('data-close'); const el = document.querySelector(sel); if (!el) return;
@@ -1453,14 +1307,14 @@ function renderItemsUI() {
         return;
     }
     host.innerHTML = items.map((it, i) => `
-      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div>
-          <div><b>${it.name}</b></div>
-          <div class="muted" style="font-size:12px;">${it.desc || ''}</div>
-        </div>
-        <button data-use="${i}">사용</button>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div>
+        <div><b>${it.name}</b></div>
+        <div class="muted" style="font-size:12px;">${it.desc || ''}</div>
       </div>
-    `).join('');
+      <button data-use="${i}">사용</button>
+    </div>
+  `).join('');
     host.querySelectorAll('button[data-use]').forEach(b => {
         b.onclick = () => useItem(parseInt(b.getAttribute('data-use'), 10));
     });
@@ -1507,31 +1361,22 @@ $('#fileInput')?.addEventListener('change', async e => {
     const seed = parseInt(meta.hash.slice(0, 8), 16) >>> 0;
 
     state.char = { meta, stats, hp: stats.HP, rng: makeRNG(seed) };
-    state.char.powerInit = calcCharPower(stats); // 초기 소환 파워
-    state.char.powerRef = REF_BASE_POWER;       // 적 스케일 기준선
-    state.char.power = state.char.powerInit; // 표시용
+    state.char.powerInit = calcCharPower(stats);
+    state.char.powerRef = REF_BASE_POWER;
+    state.char.power = state.char.powerInit;
 
     state.lootProfile = ['lowHigh', 'balanced', 'highLow'][Math.floor(state.char.rng() * 3)];
     state.runId = meta.hash.slice(0, 12);
 
     setPhase('run');
-    // ... 기존 setPhase('run'); UI 업데이트 등 이후, 맨 끝쪽에 한 줄
-    storyAt(
-        'summoned',
-        `접속 확인. <b>${meta.name}</b>의 잔광이 안정적이야. 탐사가 시작돼.`,
-        {
-            theme: 'green',
-            autohide: 2400,
-            avatar: {
-                src: window.pickPose?.('smile', { random: false }) || './assets/pixie/smile.png',
-                position: 'left',   // 'left' | 'bottom'
-                size: 118,          // px
-                radius: 16,         // px
-                alt: 'PIXIE — 미소'
-            }
-        }
-    );
 
+    storyAt('summoned', `접속 확인. <b>${meta.name}</b>의 잔광이 안정적이야. 탐사가 시작돼.`, {
+        theme: 'green', autohide: 2400,
+        avatar: {
+            src: window.pickPose?.('smile', { random: false }) || './assets/pixie/smile.png',
+            position: 'left', size: 118, radius: 16, alt: 'PIXIE — 미소'
+        }
+    });
 
     const S = $('#stats');
     if (S) S.innerHTML = `
@@ -1557,8 +1402,8 @@ $('#fileInput')?.addEventListener('change', async e => {
     enterRoom(state.map.startNodeId);
     save();
 });
+
 function showRestartPrompt() {
-    // 간단 오버레이 생성 (스타일 인라인: CSS 건드리지 않으려면 이렇게)
     const wrap = document.createElement('div');
     wrap.id = 'restartOverlay';
     Object.assign(wrap.style, {
@@ -1593,22 +1438,18 @@ function showRestartPrompt() {
     });
     btn.onclick = restartRun;
 
-    card.appendChild(title);
-    card.appendChild(msg);
-    card.appendChild(btn);
+    card.append(title, msg, btn);
     wrap.appendChild(card);
     document.body.appendChild(wrap);
 }
 
 function restartRun() {
     try { localStorage.removeItem(SAVE_KEY); } catch { }
-    // 상태 깔끔히 초기화 후 새로고침이 가장 안전
     location.reload();
 }
 
 /* ---------- 부트 ---------- */
 window.addEventListener('DOMContentLoaded', () => {
-    // 모든 오버레이/시트 닫기
     ['#mapOverlay', '#bagSheet', '#logSheet', '#dialoguePanel', '#shopSheet'].forEach(sel => {
         const el = $(sel); if (el) el.setAttribute('hidden', '');
     });
@@ -1627,12 +1468,12 @@ window.addEventListener('DOMContentLoaded', () => {
         setPhase('run');
         const s = state.char.stats, m = state.char.meta;
         const S = $('#stats'); if (S) S.innerHTML = `
-          <div class="tag">ATK ${s.ATK}</div><div class="tag">DEF ${s.DEF}</div>
-          <div class="tag">SPD ${s.SPD}</div><div class="tag">CRIT ${s.CRIT}%</div>
-          <div class="tag">Skill ${s.skill}</div>`;
+      <div class="tag">ATK ${s.ATK}</div><div class="tag">DEF ${s.DEF}</div>
+      <div class="tag">SPD ${s.SPD}</div><div class="tag">CRIT ${s.CRIT}%</div>
+      <div class="tag">Skill ${s.skill}</div>`;
         const T = $('#tags'); if (T) T.innerHTML = `
-          <span class="tag">MIME ${m.type}</span><span class="tag">SIZE ${(m.size / 1024) | 0}KB</span>
-          <span class="tag">HASH ${m.hash.slice(0, 8)}</span><span class="tag">IMG ${m.width}×${m.height}</span>`;
+      <span class="tag">MIME ${m.type}</span><span class="tag">SIZE ${(m.size / 1024) | 0}KB</span>
+      <span class="tag">HASH ${m.hash.slice(0, 8)}</span><span class="tag">IMG ${m.width}×${m.height}</span>`;
         updateGoldUI(); renderEquipUI(); renderRelicsUI(); log('세션 복원 완료');
         clampYouHP(); updateHPBars();
 
@@ -1640,21 +1481,17 @@ window.addEventListener('DOMContentLoaded', () => {
         else if (state.map) enterRoom(state.map.startNodeId);
     }
 });
+
 /* =========================
    Vault (백업 캐시 금고) — Drop-in
    ========================= */
 
-/* 상태 슬롯 확보 */
 state.temp ||= {};
 state.temp.vault ||= { shards: 0, keys: 0 };
-
-/* 유틸: 난수 */
 function _vrng() { return (state.char?.rng || Math.random); }
 
-/* 오퍼 생성 */
 function generateVaultOffers() {
     const r = _vrng();
-    // 슬롯 A: 메모리 융합 장비 (파일 업로드 → 장착)
     const slot = ['weapon', 'armor', 'rune'][Math.floor(r() * 3)];
     const offerA = {
         id: 'vault_eq',
@@ -1662,7 +1499,6 @@ function generateVaultOffers() {
         name: `메모리 융합 ${slot}`,
         desc: `이미지 업로드로 ${slot}를 생성하고 즉시 장착(이전 장비 자동 분해).`,
         action: async () => {
-            // 파일 업로드
             const inp = document.createElement('input');
             inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
             document.body.appendChild(inp);
@@ -1670,19 +1506,16 @@ function generateVaultOffers() {
                 const f = e.target.files?.[0]; inp.remove();
                 if (!f) { log('금고: 업로드가 취소되었어.'); return; }
                 const meta = await analyzeImage(f);
-                // 장비 생성 (소스는 'reward'로 통일, 층 스케일 반영)
                 const eq = makeEquipmentFromImage(meta, slot, 'reward', state.floor);
                 equipAndAutoDisassemble(eq);
                 log(`금고 보상: ${eq.tier} ${slot} 장착 완료! [${meta.name}]`);
-                // 선택 1회 소모 처리
                 consumeVaultPick();
             };
             inp.click();
         }
     };
 
-    // 슬롯 B: 골드
-    const goldGain = 18 + Math.floor((_vrng()() * 1 + state.floor) * 4); // 층 보정
+    const goldGain = 18 + Math.floor((_vrng()() * 1 + state.floor) * 4);
     const offerB = {
         id: 'vault_gold',
         type: 'gold',
@@ -1695,7 +1528,6 @@ function generateVaultOffers() {
         }
     };
 
-    // 슬롯 C: 소모품
     const kits = [
         { id: 'patch_s', name: '안정화 패치 S', type: 'heal', amount: 18, desc: '체력 18 회복' },
         { id: 'patch_m', name: '안정화 패치 M', type: 'heal', amount: 30, desc: '체력 30 회복' },
@@ -1718,7 +1550,6 @@ function generateVaultOffers() {
     return [offerA, offerB, offerC];
 }
 
-/* 렌더링 */
 function renderVault() {
     const sheet = document.getElementById('vaultSheet');
     const list = document.getElementById('vaultList');
@@ -1729,19 +1560,16 @@ function renderVault() {
 
     if (!sheet || !list || !picks || !shards || !keys || !reroll) {
         log('오류: 금고 UI 요소를 찾을 수 없어.');
-        // 안전장치: 기존 단일 보상 흐름으로 폴백
         legacyRewardFallback();
         return;
     }
 
     const V = state.temp.vault;
 
-    // 오퍼 초기화
     if (!V.offers || !Array.isArray(V.offers) || !V.offers.length) {
         V.offers = generateVaultOffers();
     }
 
-    // 카드 3개
     list.innerHTML = V.offers.map((o, i) => `
     <div class="card" data-idx="${i}" style="display:flex;flex-direction:column;gap:8px;">
       <div style="font-weight:700">${o.name}</div>
@@ -1752,12 +1580,10 @@ function renderVault() {
     </div>
   `).join('');
 
-    // 상단 상태
     picks.textContent = `남은 선택: ${V.picksLeft}`;
     shards.textContent = `조각: ${V.shards}`;
     keys.textContent = `Keys: ${V.keys}`;
 
-    // 선택 핸들러
     list.onclick = (e) => {
         const btn = e.target.closest('button[data-pick]');
         if (!btn) return;
@@ -1767,7 +1593,6 @@ function renderVault() {
         offer.action?.();
     };
 
-    // 재롤: 10G 또는 조각 1개 소모
     reroll.onclick = () => {
         if (V.shards > 0) {
             V.shards -= 1;
@@ -1783,18 +1608,15 @@ function renderVault() {
         renderVault();
     };
 
-    // 오픈
     sheet.hidden = false;
     sheet.removeAttribute('aria-hidden');
 }
 
-/* 선택 소모 & 종료 처리 */
 function consumeVaultPick() {
     const V = state.temp.vault;
     V.picksLeft = Math.max(0, (V.picksLeft || 0) - 1);
     renderVault();
 
-    // 선택이 모두 끝나면 닫고 다음 흐름
     if (V.picksLeft <= 0) {
         setTimeout(() => {
             const sheet = document.getElementById('vaultSheet');
@@ -1806,8 +1628,6 @@ function consumeVaultPick() {
         }, 300);
     }
 }
-
-/* 폴백: 기존 단일 보상(파일 업로드 → 장비) */
 function legacyRewardFallback() {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*'; input.style.display = 'none';
@@ -1830,38 +1650,32 @@ function legacyRewardFallback() {
     input.click();
 }
 
-/* 공개 API: 기존 openReward() 교체 */
+/* 공개 API: Vault 버전 */
 function openReward() {
-    // 최초 진입 시 일회성 초기값
     const V = state.temp.vault;
     if (!('shards' in V)) V.shards = 0;
     if (!('keys' in V)) V.keys = 0;
-
-    // 키가 있으면 2회 선택, 없으면 1회
     V.picksLeft = (V.keys > 0) ? 2 : 1;
     V.offers = generateVaultOffers();
     renderVault();
 }
 
-/* 금고 닫기 버튼 처리(이미 data-close가 있지만 안전망) */
 document.querySelector('#vaultSheet .close[data-close="#vaultSheet"]')?.addEventListener('click', () => {
     const sheet = document.getElementById('vaultSheet');
     sheet.setAttribute('hidden', '');
     sheet.setAttribute('aria-hidden', 'true');
     advanceFlow(300);
 });
+
 /* ======================
    Story Bubble Hooks
    ====================== */
-// 중복/스팸 방지용 간단 쿨다운 (키별)
-// 중복/스팸 방지용 간단 쿨다운 (키별)
 const _storyCooldown = new Map();
-
 function storyAt(key, text, opts = {}) {
     const now = Date.now();
     const cd = opts.cooldown ?? 1200;
     const last = _storyCooldown.get(key) || 0;
-    if (now - last < cd) return; // 쿨다운 중
+    if (now - last < cd) return;
     _storyCooldown.set(key, now);
 
     if (typeof window.story === 'function') {
@@ -1869,8 +1683,7 @@ function storyAt(key, text, opts = {}) {
             autohide: opts.autohide ?? 2400,
             theme: opts.theme ?? null,
             onClose: opts.onClose,
-            avatar: opts.avatar // ★ 아바타 옵션 그대로 전달
+            avatar: opts.avatar
         });
     }
 }
-
