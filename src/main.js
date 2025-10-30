@@ -621,6 +621,13 @@ function roomDesc(type) {
         default: return '';
     }
 }
+function shouldNarrateRoom() {
+    // 튜토리얼은 항상 안내
+    if (state?.map?.id === 'TUT') return true;
+    const r = state.char?.rng || Math.random;
+    return r() < 0.35; // 35% 확률
+}
+
 function enterRoom(nodeId) {
     state.room = state.map.nodes.find(n => n.id === nodeId);
     $('#roomName').textContent = state.room.name;
@@ -633,26 +640,82 @@ function enterRoom(nodeId) {
 
     if (first) {
         state.visited.add(key);
-        if (state.room.type === 'battle' || state.room.type === 'boss') {
-            spawnEnemy(state.room.type === 'boss');
-        } else if (state.room.type === 'reward') {
-            openReward();
-        } else if (state.room.type === 'trap') {
-            applyTrap();
-        } else if (state.room.type === 'shop') {
-            openShop();
-        } else if (state.room.type === 'event') {
-            openEvent();
-        } else if (state.room.type === 'exit') {
-            openExit();
+        if (shouldNarrateRoom()) {
+            if (state.room.type === 'battle' || state.room.type === 'boss') {
+                spawnEnemy(state.room.type === 'boss');
+            } else if (state.room.type === 'reward') {
+                openReward();
+            } else if (state.room.type === 'trap') {
+                applyTrap();
+            } else if (state.room.type === 'shop') {
+                openShop();
+            } else if (state.room.type === 'event') {
+                openEvent();
+            } else if (state.room.type === 'exit') {
+                openExit();
+            }
+            const t = state.room.type;
+            if (t === 'battle') storyAt('room_bat_' + nodeId, '잔향체 냄새가 나… 먼저 정리하자.', {
+                autohide: 2400,
+                avatar: {
+                    src: window.pickPose?.('talk_a', { random: false }) || './assets/pixie/talk_a.png',
+                    position: 'left',   // 'left' | 'bottom'
+                    size: 118,          // px
+                    radius: 16,         // px
+                    alt: 'PIXIE — 대화'
+                }
+            });
+            if (t === 'event') storyAt('room_evt_' + nodeId, '파편 아카이브다! 조건에 맞는 기억이면 로그를 되살릴 수 있어 ପ(˶•-•˶)ଓ ♡', {
+                autohide: 2400,
+                avatar: {
+                    src: window.pickPose?.('surprised', { random: false }) || './assets/pixie/surprised.png',
+                    position: 'left',   // 'left' | 'bottom'
+                    size: 118,          // px
+                    radius: 16,         // px
+                    alt: 'PIXIE — 놀람'
+                }
+            });
+            if (t === 'reward') storyAt('room_rwd_' + nodeId, '백업 캐시 금고 발견( σ̴̶̷̤ .̫ σ̴̶̷̤ ) 적합한 추억으로 장비를 강화할 수 있어!', {
+                autohide: 2400,
+                avatar: {
+                    src: window.pickPose?.('surprised', { random: false }) || './assets/pixie/surprised.png',
+                    position: 'left',   // 'left' | 'bottom'
+                    size: 118,          // px
+                    radius: 16,         // px
+                    alt: 'PIXIE — 놀람'
+                }
+            });
+            if (t === 'trap') storyAt('room_trp_' + nodeId, '조심해. 이 구간 메모리가 찢어져 있어.', { theme: 'pink' }, {
+                autohide: 2400,
+                avatar: {
+                    src: window.pickPose?.('serious', { random: false }) || './assets/pixie/serious.png',
+                    position: 'left',   // 'left' | 'bottom'
+                    size: 118,          // px
+                    radius: 16,         // px
+                    alt: 'PIXIE — 진지'
+                }
+            });
+            if (t === 'shop') storyAt('room_shp_' + nodeId, '패치 키오스크 온라인. 장비/회복/룬을 준비해.', {
+                autohide: 2400,
+                avatar: {
+                    src: window.pickPose?.('talk_a', { random: false }) || './assets/pixie/talk_a.png',
+                    position: 'left',   // 'left' | 'bottom'
+                    size: 118,          // px
+                    radius: 16,         // px
+                    alt: 'PIXIE — 대화'
+                }
+            });
+            if (t === 'boss') storyAt('room_bos_' + nodeId, '조심해!! 관리자 데몬이야!!', {
+                autohide: 2400,
+                avatar: {
+                    src: window.pickPose?.('serious', { random: false }) || './assets/pixie/serious.png',
+                    position: 'left',   // 'left' | 'bottom'
+                    size: 118,          // px
+                    radius: 16,         // px
+                    alt: 'PIXIE — 진지'
+                }
+            });
         }
-        const t = state.room.type;
-        if (t === 'battle') storyAt('room_bat_' + nodeId, '잔향체 냄새가 나… 먼저 정리하자.');
-        if (t === 'event') storyAt('room_evt_' + nodeId, '파편 아카이브다! 조건에 맞는 기억이면 로그를 되살릴 수 있어 ପ(˶•-•˶)ଓ ♡');
-        if (t === 'reward') storyAt('room_rwd_' + nodeId, '백업 캐시 금고 발견( σ̴̶̷̤ .̫ σ̴̶̷̤ ) 적합한 추억으로 장비를 강화할 수 있어!');
-        if (t === 'trap') storyAt('room_trp_' + nodeId, '조심해. 이 구간 메모리가 찢어져 있어.', { theme: 'pink' });
-        if (t === 'shop') storyAt('room_shp_' + nodeId, '패치 키오스크 온라인. 장비/회복/룬을 준비해.');
-        if (t === 'boss') storyAt('room_bos_' + nodeId, '조심해!! 관리자 데몬이야!!');
         if (t === 'exit') storyAt('room_ext_' + nodeId, '포트가 보여. 시드 두 개가 필요해.');
     } else {
         log(`소거된 잔향: ${state.room.name} (이벤트 없음)`);
@@ -953,9 +1016,24 @@ function onPlayerDown() {
 
     // ★ 두 번째 사망: 재시작 안내
     log('탈락: 탐사자 다운');
-    if (window.story) {
-        window.story('미안… 이번에는 지키지 못했어.', { icon: '😔', duration: 1800, pos: 'center' });
-    }
+
+    // 픽시 우는 표정 말풍선 (아바타 이미지 포함)
+    storyAt(
+        'down_fail',
+        '미안… 이번에는 지키지 못했어.',
+        {
+            theme: 'pink',
+            autohide: 2200,
+            avatar: {
+                // pickPose가 있으면 cry 포즈 사용, 없으면 기본 경로 사용
+                src: (window.pickPose && window.pickPose('cry')) || './assets/pixie/cry.png',
+                position: 'left',   // 'left' 또는 'bottom'
+                size: 116,          // px
+                radius: 14,         // px
+                alt: 'PIXIE — 눈물'
+            }
+        }
+    );
 
     // 입력 막고 버튼도 비활성화
     state.turnLock = true;
@@ -1107,8 +1185,8 @@ function openEvent() {
             rewards.push(`HP +${judge.heal}`);
         }
         const kit = (judge.ok && judge.results.length === 2)
-            ? { id: 'patch_m', name: '안정화 패치 M', type: 'heal', amount: 30, desc: '체력 30 회복' }
-            : { id: 'patch_s', name: '안정화 패치 S', type: 'heal', amount: 18, desc: '체력 18 회복' };
+            ? { id: 'patch_m', name: '안정화 패치 M', type: 'heal', amount: 50, desc: '체력 50 회복' }
+            : { id: 'patch_s', name: '안정화 패치 S', type: 'heal', amount: 30, desc: '체력 30 회복' };
         state.inventory.consum.push(kit);
         rewards.push(`${kit.name} ×1`);
 
@@ -1175,21 +1253,21 @@ function openShop() {
     const floorBump = Math.max(0, (state.floor - 1)) * 2;
 
     const slotA = {
-        id: 'heal30', name: '안정화 패치(즉시)', desc: 'HP 30 회복',
-        cost: 30 + floorBump,
+        id: 'heal50', name: '안정화 패치(즉시)', desc: 'HP 50 회복',
+        cost: 50 + floorBump,
         buy() {
             state.gold -= this.cost;
-            state.char.hp = Math.min(getYouStats().HPmax, state.char.hp + 30);
+            state.char.hp = Math.min(getYouStats().HPmax, state.char.hp + 50);
             updateGoldUI(); updateHPBars();
-            log(`상점A: ${this.name} 구매 (HP +30, -${this.cost}G)`);
+            log(`상점A: ${this.name} 구매 (HP +50, -${this.cost}G)`);
         }
     };
     const slotB = {
-        id: 'patch_m', name: '안정화 패치 M', desc: '소모품: 사용 시 HP +30',
+        id: 'patch_s', name: '안정화 패치 S', desc: '소모품: 사용 시 HP +30',
         cost: 22 + floorBump,
         buy() {
             state.gold -= this.cost;
-            (state.inventory.consum ||= []).push({ id: 'patch_m', name: '안정화 패치 M', type: 'heal', amount: 30, desc: '체력 30 회복' });
+            (state.inventory.consum ||= []).push({ id: 'patch_s', name: '안정화 패치 S', type: 'heal', amount: 30, desc: '체력 30 회복' });
             updateGoldUI();
             log(`상점B: ${this.name} 구매 (인벤토리 지급, -${this.cost}G)`);
         }
@@ -1438,7 +1516,22 @@ $('#fileInput')?.addEventListener('change', async e => {
 
     setPhase('run');
     // ... 기존 setPhase('run'); UI 업데이트 등 이후, 맨 끝쪽에 한 줄
-    storyAt('summoned', `접속 확인. <b>${meta.name}</b>의 잔광이 안정적이야. 탐사가 시작돼.`, { theme: 'green' });
+    storyAt(
+        'summoned',
+        `접속 확인. <b>${meta.name}</b>의 잔광이 안정적이야. 탐사가 시작돼.`,
+        {
+            theme: 'green',
+            autohide: 2400,
+            avatar: {
+                src: window.pickPose?.('smile', { random: false }) || './assets/pixie/smile.png',
+                position: 'left',   // 'left' | 'bottom'
+                size: 118,          // px
+                radius: 16,         // px
+                alt: 'PIXIE — 미소'
+            }
+        }
+    );
+
 
     const S = $('#stats');
     if (S) S.innerHTML = `
@@ -1761,8 +1854,8 @@ document.querySelector('#vaultSheet .close[data-close="#vaultSheet"]')?.addEvent
    Story Bubble Hooks
    ====================== */
 // 중복/스팸 방지용 간단 쿨다운 (키별)
+// 중복/스팸 방지용 간단 쿨다운 (키별)
 const _storyCooldown = new Map();
-
 
 function storyAt(key, text, opts = {}) {
     const now = Date.now();
@@ -1770,18 +1863,14 @@ function storyAt(key, text, opts = {}) {
     const last = _storyCooldown.get(key) || 0;
     if (now - last < cd) return; // 쿨다운 중
     _storyCooldown.set(key, now);
+
     if (typeof window.story === 'function') {
         window.story(text, {
             autohide: opts.autohide ?? 2400,
             theme: opts.theme ?? null,
-            onClose: opts.onClose
+            onClose: opts.onClose,
+            avatar: opts.avatar // ★ 아바타 옵션 그대로 전달
         });
     }
 }
 
-/** 전투 중 너무 잦게 뜨지 않게 하고 싶으면 이 헬퍼 사용 */
-function storyInCombat(key, text, opts = {}) {
-    // 턴락 중엔 큐에 넣고, 풀리면 보여주고 싶다면 옵션 확장 가능
-    if (state.turnLock) return;
-    storyAt(key, text, { theme: 'pink', ...opts });
-}

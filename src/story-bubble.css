@@ -127,3 +127,67 @@
         font-size: clamp(14px, 3.6vw, 17px);
     }
 }
+
+/* ====== 레이아웃 확장: 아바타 지원 ====== */
+#storyBubble .content {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "avatar msg";
+    align-items: center;
+    gap: 12px;
+}
+
+#storyBubble .avatar {
+    grid-area: avatar;
+    display: block;
+    width: var(--avatar-size, 96px);
+    height: var(--avatar-size, 96px);
+    border-radius: var(--avatar-radius, 14px);
+    overflow: hidden;
+    box-shadow:
+        0 4px 18px rgba(0, 0, 0, .35),
+        0 0 16px rgba(0, 200, 255, .18) inset;
+    background: linear-gradient(180deg, rgba(0, 25, 50, .35), rgba(0, 0, 0, .4));
+}
+
+#storyBubble .avatar[hidden] {
+    display: none;
+}
+
+#storyBubble .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    image-rendering: auto;
+}
+
+/* 텍스트/버튼 묶음 */
+#storyBubble .msg {
+    grid-area: msg;
+}
+
+/* 위치 프리셋: 왼쪽(기본) / 아래 */
+#storyBubble.avatar-left .content {
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "avatar msg";
+}
+
+#storyBubble.avatar-bottom .content {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+        "msg"
+        "avatar";
+}
+
+/* 모바일에서는 자동으로 아래 배치 (가독성 우선) */
+@media (max-width: 520px) {
+    #storyBubble .content {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "msg"
+            "avatar";
+    }
+}
+
+/* 말풍선 기본 스타일(기존 유지)와 충돌 없음 */

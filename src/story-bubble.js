@@ -1,6 +1,6 @@
-// ===== PIXIE Story Bubble (standalone) =====
+// ===== PIXIE Story Bubble (standalone, with avatar) =====
 (function () {
-    // 1) 호스트 DOM이 없으면 자동 생성 (독립 운용용)
+    // 1) 호스트 DOM이 없으면 자동 생성 (독립 운용)
     let host = document.getElementById('storyBubble');
     if (!host) {
         host = document.createElement('aside');
@@ -25,22 +25,64 @@
     let queue = [];
     let autoTimer = null;
 
+    const AVATAR_ID = 'storyAvatar';
+
     function _applyTheme(theme) {
         host.classList.remove('theme-pink', 'theme-green');
         if (theme) host.classList.add(`theme-${theme}`);
     }
 
-    function _open(msg, { autohide = 0, theme = null, onClose = null, closeOnBackdrop = true } = {}) {
-        if (lock) return false;
-        if (!textEl) return false;
+    // 아바타(픽시 표정 이미지) 설정/해제
+    function _setAvatar(avatar) {
+        // avatar: { src, alt?, position?('left'|'bottom'), size?, radius?, className? }
+        let img = host.querySelector('#' + AVATAR_ID);
+
+        if (!avatar || !avatar.src) {
+            if (img) img.remove();
+            host.classList.remove('ava-left', 'ava-bottom', 'with-ava');
+            return;
+        }
+
+        if (!img) {
+            img = document.createElement('img');
+            img.id = AVATAR_ID;
+            img.decoding = 'async';
+            img.loading = 'eager';
+            img.draggable = false;
+            img.alt = avatar.alt || 'PIXIE';
+            img.className = 'story-avatar ' + (avatar.className || '');
+            const bubble = host.querySelector('.bubble');
+            const p = host.querySelector('#storyText');
+            bubble.insertBefore(img, p);
+        }
+
+        img.src = avatar.src;
+        img.alt = avatar.alt || 'PIXIE';
+        img.style.width = (avatar.size ?? 112) + 'px';
+        img.style.height = 'auto';
+        img.style.borderRadius = (avatar.radius ?? 16) + 'px';
+
+        host.classList.add('with-ava');
+        host.classList.remove('ava-left', 'ava-bottom');
+        host.classList.add(avatar.position === 'bottom' ? 'ava-bottom' : 'ava-left');
+    }
+
+    function _open(msg, {
+        autohide = 0,
+        theme = null,
+        onClose = null,
+        closeOnBackdrop = true,
+        avatar = null
+    } = {}) {
+        if (lock || !textEl) return false;
 
         _applyTheme(theme);
         textEl.innerHTML = msg;
+        _setAvatar(avatar);
 
         host.hidden = false;
         host.removeAttribute('aria-hidden');
 
-        // 닫기 핸들러
         const close = () => {
             if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
             host.setAttribute('hidden', '');
@@ -48,28 +90,23 @@
             lock = false;
             document.removeEventListener('keydown', escClose);
             if (closeOnBackdrop) host.removeEventListener('click', backdropClose);
+            _setAvatar(null);
             if (typeof onClose === 'function') onClose();
-            _drain(); // 큐 다음 항목
+            _drain();
         };
 
-        // ESC 닫기
         function escClose(e) { if (e.key === 'Escape') close(); }
         document.addEventListener('keydown', escClose);
 
-        // 배경 클릭 닫기
-        function backdropClose(e) {
-            if (e.target === host) close();
-        }
+        function backdropClose(e) { if (e.target === host) close(); }
         if (closeOnBackdrop) host.addEventListener('click', backdropClose);
 
-        // 버튼 닫기
         if (closeBtn) {
             closeBtn.onclick = close;
-            closeBtn.classList.remove('ghost'); // 스타일 충돌 방지용 (있어도 OK)
+            closeBtn.classList.remove('ghost');
             closeBtn.id = 'storyClose';
         }
 
-        // 자동 닫기
         if (autohide > 0) {
             autoTimer = setTimeout(() => { autoTimer = null; close(); }, autohide);
         }
@@ -86,54 +123,64 @@
     }
 
     // ========== 공개 API ==========
+    /** 단건 표시 */
     function story(msg, opts = {}) {
-        // 즉시 표시 시도, 실패하면 큐에 적재
-        if (!_open(msg, opts)) {
-            queue.push({ msg, opts });
-        }
+        if (!_open(msg, opts)) queue.push({ msg, opts });
     }
 
+    /** 여러 개를 순차 표시 */
     function storyQueue(messages = [], { gap = 400, autohide = 0, theme = null } = {}) {
-        // messages: string[] 또는 {text, autohide, theme, onClose}[]
         const normalized = messages.map(m => {
             if (typeof m === 'string') return { text: m, autohide, theme };
-            return { text: m.text, autohide: m.autohide ?? autohide, theme: m.theme ?? theme, onClose: m.onClose };
+            return {
+                text: m.text,
+                autohide: m.autohide ?? autohide,
+                theme: m.theme ?? theme,
+                onClose: m.onClose,
+                avatar: m.avatar
+            };
         });
 
-        // 첫 항목은 즉시, 이후는 onClose에서 지연 후 enqueue
         const first = normalized.shift();
         if (first) {
             story(first.text, {
                 autohide: first.autohide,
                 theme: first.theme,
                 onClose: () => {
-                    // 나머지를 gap 간격으로 순차 등록
                     let i = 0;
                     const tick = () => {
                         if (i >= normalized.length) return;
                         const it = normalized[i++];
                         setTimeout(() => {
-                            story(it.text, { autohide: it.autohide, theme: it.theme, onClose: it.onClose });
+                            story(it.text, {
+                                autohide: it.autohide,
+                                theme: it.theme,
+                                onClose: it.onClose,
+                                avatar: it.avatar
+                            });
                             tick();
                         }, gap);
                     };
                     tick();
                     if (typeof first.onClose === 'function') first.onClose();
-                }
+                },
+                avatar: first.avatar
             });
         }
     }
 
+    /** 강제 닫기(큐 유지) */
     function closeStory() {
-        // 강제 닫기 (큐는 유지)
         if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
         host.setAttribute('hidden', '');
         host.setAttribute('aria-hidden', 'true');
         lock = false;
+        _setAvatar(null);
     }
 
-    // 전역 등록
+
     window.story = story;
     window.storyQueue = storyQueue;
     window.closeStory = closeStory;
+    window.storySpeak = storySpeak; // 선택 사용
 })();
