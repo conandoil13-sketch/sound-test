@@ -756,7 +756,7 @@ function advanceFlow(delay = 0) {
 
 /* ===== 데미지 감쇠 커브 ===== */
 function softDamageAgainst(ATK, DEF) {
-    const BASE = 8, SPAN = 20, K_ATK = 0.90, C_DEF = 1.20, BIAS = 22;
+    const BASE = 12, SPAN = 20, K_ATK = 0.95, C_DEF = 1.15, BIAS = 16;
     const num = ATK * K_ATK;
     const den = (ATK * K_ATK) + (DEF * C_DEF) + BIAS;
     const ratio = den > 0 ? num / den : 0;
@@ -1529,9 +1529,9 @@ function generateVaultOffers() {
     };
 
     const kits = [
-        { id: 'patch_s', name: '안정화 패치 S', type: 'heal', amount: 18, desc: '체력 18 회복' },
-        { id: 'patch_m', name: '안정화 패치 M', type: 'heal', amount: 30, desc: '체력 30 회복' },
-        { id: 'patch_l', name: '안정화 패치 L', type: 'heal', amount: 45, desc: '체력 45 회복' },
+        { id: 'patch_s', name: '안정화 패치 S', type: 'heal', amount: 30, desc: '체력 30 회복' },
+        { id: 'patch_m', name: '안정화 패치 M', type: 'heal', amount: 50, desc: '체력 50 회복' },
+        { id: 'patch_l', name: '안정화 패치 L', type: 'heal', amount: 100, desc: '체력 100 회복' },
     ];
     const kit = kits[Math.floor(r() * kits.length)];
     const offerC = {
