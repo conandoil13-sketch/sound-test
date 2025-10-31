@@ -325,7 +325,7 @@ function metaToStats(meta) {
 /* ================================
    PIXIE Log (from scratch)
    ================================ */
-const PIXIE_BUF = [];
+const PIXIE_BUF = []; // { text, tone, badge, time }
 function escapeHTML(s = '') { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function pickTone(s) {
     if (/오류|ERROR|탈락|경고|DEF -|에러|실패/.test(s)) return 'err';
@@ -425,7 +425,7 @@ function clampYouHP() {
     state.char.hp = clamp(state.char.hp, 0, eff.HPmax);
 }
 
-/* ---------- 절차 스프라이트 ---------- */
+/* ---------- 절차 스프라이트 (기본형, 현재는 ENEMY 전용 시스템 사용) ---------- */
 function svgDataURL({ w = 160, h = 160, hue = 200, role = 'enemy' } = {}) {
     const bg = `hsl(${hue},60%,${role === 'enemy' ? 18 : 28}%)`;
     const fg = `hsl(${(hue + 40) % 360},70%,60%)`;
@@ -587,7 +587,7 @@ function roomDesc(type) {
         default: return '';
     }
 }
-/* 말풍선 확률: 튜토리얼은 항상, 그 외 35% */
+/* 말풍선 확률: 튜토리얼은 항상, 그 외 35% (게임 RNG 소비 금지) */
 function shouldNarrateRoom() {
     if (state?.map?.id === 'TUT') return true;
     return Math.random() < 0.35;
@@ -606,7 +606,7 @@ function enterRoom(nodeId) {
     if (first) {
         state.visited.add(key);
 
-        // ✅ 핵심 액션
+        // ✅ 핵심 액션: 항상 실행
         if (state.room.type === 'battle' || state.room.type === 'boss') {
             spawnEnemy(state.room.type === 'boss');
         } else if (state.room.type === 'reward') {
@@ -621,7 +621,7 @@ function enterRoom(nodeId) {
             openExit();
         }
 
-        // ✅ 말풍선
+        // ✅ 말풍선: 보스는 항상, 그 외는 확률
         const t = state.room.type;
         const narrate = (t === 'boss') || shouldNarrateRoom();
         if (narrate) {
@@ -765,12 +765,7 @@ function softDamageAgainst(ATK, DEF) {
 }
 
 /* ---------- 전투 ---------- */
-function setSpritesForBattle() {
-    const youHue = (state.char?.meta?.hsvAvg.h ?? 210);
-    const enHue = (youHue + 140) % 360;
-    $('#youSprite').src = svgDataURL({ hue: youHue, role: 'you' });
-    $('#enemySprite').src = svgDataURL({ hue: enHue, role: 'enemy' });
-}
+/* (YOU 스프라이트는 아래 Player Sprite System에서 렌더) */
 function calcEnemyStats(isBoss = false) {
     const base = isBoss ? { HP: 170, ATK: 30, DEF: 15, SPD: 7 }
         : { HP: 110, ATK: 12, DEF: 9, SPD: 6 };
@@ -795,35 +790,57 @@ function calcEnemyStats(isBoss = false) {
 }
 
 /* =========================================
- * Enemy Sprite System — VARIANTS
+ * Enemy Sprite System — VARIANTS (REPLACE)
  * ========================================= */
+
 const _enemySpriteCache = new Map();
+
+/* 아키타입 + 파라미터 빌드 */
 function buildEnemySpriteConfig(seed32, isBoss = false) {
     const r = makeRNG(seed32 >>> 0);
     const archetypes = ['sentinel', 'swarm', 'obelisk', 'orbiter'];
     const type = isBoss ? 'obelisk' : archetypes[Math.floor(r() * archetypes.length)];
 
+    // 팔레트: 플레이어 기준 +140°에 ±15° 가변
     const baseH = ((state.char?.meta?.hsvAvg?.h ?? 210) + 140 + Math.round((r() - 0.5) * 30) + 360) % 360;
     const sat = 60 + Math.round(r() * 10);
     const lig = isBoss ? 22 : 18;
 
+    // 공통 파라미터
     const strokeStyle = (r() < 0.35) ? 'dash' : 'solid';
-    const tiltDeg = Math.round((r() - 0.5) * 10);
+    const tiltDeg = Math.round((r() - 0.5) * 10); // -5~+5도
     const badge = (r() < 0.18) ? true : false;
 
+    // 타입별 내부 파라미터
     let params = {};
     if (type === 'sentinel') {
-        params = { frame: 'rect', dash: true, triH: 0.55 + r() * 0.08 };
+        params = {
+            frame: 'rect', dash: true,
+            triH: 0.55 + r() * 0.08, // 역삼각 키
+        };
     } else if (type === 'swarm') {
-        params = { dots: (isBoss ? 7 : 3 + Math.floor(r() * 3)), radius: 7 + Math.floor(r() * 9) };
+        params = {
+            dots: (isBoss ? 7 : 3 + Math.floor(r() * 3)), // 3~5, 보스 7
+            radius: 7 + Math.floor(r() * 9)
+        };
     } else if (type === 'obelisk') {
-        params = { pillarW: 0.28 + r() * 0.08, eye: true, rings: isBoss ? 3 : 1 + Math.floor(r() * 2) };
+        params = {
+            pillarW: 0.28 + r() * 0.08,
+            eye: true,
+            rings: isBoss ? 3 : 1 + Math.floor(r() * 2)
+        };
     } else if (type === 'orbiter') {
-        params = { coreR: 0.22 + r() * 0.06, sats: (isBoss ? 4 : 2 + Math.floor(r() * 2)) };
+        params = {
+            coreR: 0.22 + r() * 0.06,
+            sats: (isBoss ? 4 : 2 + Math.floor(r() * 2)) // 2~3, 보스 4
+        };
     }
 
     return { type, baseH, sat, lig, strokeStyle, tiltDeg, badge, params, isBoss };
 }
+
+/* 적 SVG 생성 */
+function _hsl(h = 200, s = 60, l = 28) { return `hsl(${h},${s}%,${l}%)`; }
 function svgDataURLEnemy(cfg, w = 160, h = 160) {
     const { type, baseH, sat, lig, strokeStyle, tiltDeg, badge, params, isBoss } = cfg;
 
@@ -892,6 +909,8 @@ function svgDataURLEnemy(cfg, w = 160, h = 160) {
   </svg>`;
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(base);
 }
+
+/* 적 스프라이트 적용 */
 function renderEnemySprite(seed32, isBoss = false) {
     const cfg = buildEnemySpriteConfig(seed32, isBoss);
     const key = JSON.stringify(cfg);
@@ -903,76 +922,160 @@ function renderEnemySprite(seed32, isBoss = false) {
     if (el) el.src = url;
 }
 
-/* ★ 적 생성 */
-function spawnEnemy(isBoss = false) {
-    const stats = calcEnemyStats(isBoss);
-    state.enemy = {
-        name: isBoss ? '수문자 프로세스' : '잔향체',
-        stats, hp: stats.HP,
-        chips: isBoss ? ['과열', '보호막'] : ['과열']
-    };
+/* =========================================
+ * Player Sprite System — YOU (INTEGRATED)
+ * ========================================= */
 
-    const seed =
-        (state.floor << 16) ^
-        (parseInt((state.map?.id || '').replace(/\D/g, '')) || 0) ^
-        (parseInt((state.room?.id || '').replace(/\D/g, '')) || 0) ^
-        (parseInt(state.runId || '0', 16) >>> 0);
+/* 캐시: 같은 파라미터면 같은 data URL 재사용 */
+const _youSpriteCache = new Map();
+const _jsonKey = (o) => JSON.stringify(o);
 
-    setSpritesForBattle();
-    renderEnemySprite(seed >>> 0, isBoss);
-
-    renderBattleUI();
-    log(`적 등장: ${state.enemy.name} HP ${state.enemy.hp} (scaled)`);
-    if (state.char?.trapDEF > 0) log(`함정 경고: DEF -${state.char.trapDEF} (피격 시 1스택 소모)`);
+/* 티어 > 숫자화 + 컬러 보정 유틸 */
+function _tierRank(t) { return ({ T1: 1, T2: 2, T3: 3, T4: 4, T5: 5 }[t] || 0); }
+function _tierAdjust(hsl, tierN) {
+    const [h, s, l] = hsl;
+    const s2 = Math.min(100, s + tierN * 2.2);
+    const l2 = Math.min(100, l + tierN * 1.4);
+    return [h, s2, l2];
 }
 
+/* 장비 → 외형 파라미터 매핑 */
+function buildSpriteConfigFromEquip() {
+    const { weapon, armor, rune } = state.equip || {};
+    const eff = getYouStats();
+    const youHPmax = eff.HPmax || (state.char?.stats?.HP || 100);
+    const youHP = state.char?.hp ?? youHPmax;
+
+    // 무기(공격성)
+    const atkPct = weapon?.mods?.atkPct || 0;
+    const crit = (weapon?.mods?.crit || 0);
+    const spikes = Math.max(4, Math.min(12, 4 + Math.round(atkPct / 5)));
+    const polyDash = crit >= 6;
+
+    // 방어(안정감)
+    const defVal = armor?.mods?.def || 0;
+    const hpVal = armor?.mods?.hp || 0;
+    const ringCount = Math.max(0, Math.min(3, Math.round((defVal + hpVal) / 40)));
+    const borderPx = Math.max(2, Math.min(6, 2 + Math.round((defVal) / 3)));
+
+    // 룬(오라/잔향)
+    const echo = rune?.mods?.echo || 0;
+    const auraAlpha = Math.min(0.45, 0.18 + echo * 0.9);
+
+    // 티어(색감 보정)
+    const tierMax = Math.max(_tierRank(weapon?.tier), _tierRank(armor?.tier), _tierRank(rune?.tier));
+
+    // HP 상태색 (저체력 시 붉은 기)
+    const lowHP = youHPmax > 0 ? (youHP / youHPmax) < 0.30 : false;
+    const hueBase = (state.char?.meta?.hsvAvg?.h ?? 210);
+    const baseHSL = [hueBase, 60, 28 + (lowHP ? -2 : 0)];
+    const [H, S, L] = _tierAdjust(baseHSL, tierMax);
+
+    return {
+        w: 160, h: 160,
+        hue: H, sat: S, lig: L,
+        spikes, polyDash, ringCount, borderPx,
+        auraAlpha,
+        lowHP
+    };
+}
+function svgDataURLYou(cfg) {
+    const { w, h, hue, sat, lig, spikes, polyDash, ringCount, borderPx, auraAlpha, lowHP } = cfg;
+
+    const bg = _hsl(hue, sat * 0.6, Math.max(10, lig - 2));
+    const fg = _hsl((hue + 25) % 360, Math.min(100, sat + 8), Math.min(80, lig + 22));
+    const accent = _hsl((hue + 300) % 360, Math.min(100, sat + 12), Math.min(78, lig + 28));
+    const ringClr = _hsl(hue, sat, Math.min(90, lig + 36));
+
+    const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.28;
+    const pts = [];
+    for (let i = 0; i < spikes; i++) {
+        const a = (i / spikes) * Math.PI * 2;
+        const rr = r * (0.92 + 0.08 * Math.sin(i * 1.7));
+        pts.push(`${cx + rr * Math.cos(a)},${cy + rr * Math.sin(a)}`);
+    }
+    const poly = pts.join(' ');
+
+    const rings = [];
+    for (let i = 1; i <= ringCount; i++) {
+        const rr = (Math.min(w, h) * 0.36) + i * 6;
+        rings.push(`<circle cx="${cx}" cy="${cy}" r="${rr}" fill="none" stroke="${ringClr}" stroke-opacity="${0.25 - i * 0.05}" stroke-width="1"/>`);
+    }
+
+    const aura = `<circle cx="${cx}" cy="${cy}" r="${Math.min(w, h) * 0.48}" fill="${accent}" opacity="${auraAlpha}"/>`;
+
+    const tint = lowHP
+        ? `<rect x="0" y="0" width="${w}" height="${h}" fill="rgba(255,70,70,0.06)"/>`
+        : '';
+
+    const dash = polyDash ? `stroke-dasharray="5 4"` : '';
+    const body = `<polygon points="${poly}" fill="${fg}" stroke="${accent}" stroke-width="${borderPx}" ${dash} opacity="0.9"/>`;
+
+    const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+    <rect width="100%" height="100%" fill="${bg}"/>
+    ${aura}
+    ${rings.join('')}
+    ${body}
+    <line x1="${w * 0.18}" y1="${h * 0.82}" x2="${w * 0.82}" y2="${h * 0.82}" stroke="${accent}" stroke-width="2" opacity=".45"/>
+    ${tint}
+  </svg>`;
+
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+function renderYouSprite() {
+    if (!state.char) return;
+    const cfg = buildSpriteConfigFromEquip();
+    const key = _jsonKey(cfg);
+    if (!_youSpriteCache.has(key)) {
+        _youSpriteCache.set(key, svgDataURLYou(cfg));
+    }
+    const url = _youSpriteCache.get(key);
+    const el = document.getElementById('youSprite');
+    if (el) el.src = url;
+}
+/* 전투 진입 시 호출(적 스프라이트는 spawnEnemy에서 처리) */
+function setSpritesForBattle() {
+    renderYouSprite(); // YOU만 렌더
+}
+
+/* -------- 전투 UI/흐름 -------- */
 function renderBattleUI() {
     $('#battleStage').hidden = false;
-
-    // ▼ 전투 상태 플래그(“1도 추가”): 전투 중에만 적 HP 표시
-    const enemyBar = $('#hpEnemy');
-    const enemyTxt = $('#hpEnemyTxt');
-    if (enemyBar) enemyBar.parentElement?.removeAttribute('aria-hidden');
-    if (enemyTxt) enemyTxt.parentElement?.removeAttribute('aria-hidden');
-
     updateHPBars();
     $('#enemyChips').innerHTML = state.enemy.chips.map(c => `<span class="chip">${c}</span>`).join('');
     state.turnLock = false;
     $('#attackBtn').disabled = false;
 }
 
-/* ★★★ HP 바 업데이트 — 버그픽스 ★★★ */
+/* ✅ HP 바 갱신 — 안전화 & YOU 스프라이트 동기화 */
 function updateHPBars() {
     if (!state.char) return;
 
     const eff = getYouStats();
     const you = state.char;
+
+    // 플레이어
+    const youMax = Math.max(1, eff?.HPmax || you?.stats?.HP || 1);
+    const youPct = Math.max(0, Math.min(100, (you.hp / youMax) * 100));
+    const hpYouBar = document.getElementById('hpYou');
+    const hpYouTxt = document.getElementById('hpYouTxt');
+    if (hpYouBar) hpYouBar.style.width = `${youPct}%`;
+    if (hpYouTxt) hpYouTxt.textContent = `HP ${you.hp}/${youMax}`;
+
+    // 적 (존재할 때만)
     const en = state.enemy;
-
-    const youPct = Math.max(0, you.hp / eff.HPmax) * 100;
-    const youBar = $('#hpYou');
-    const youTxt = $('#hpYouTxt');
-    if (youBar) youBar.style.width = `${youPct}%`;
-    if (youTxt) youTxt.textContent = `HP ${you.hp}/${eff.HPmax}`;
-
-    const enemyBar = $('#hpEnemy');
-    const enemyTxt = $('#hpEnemyTxt');
-
-    if (en && en.stats && typeof en.stats.HP === 'number') {
-        // 적이 “존재할 때만” 값을 갱신
-        const enPct = Math.max(0, en.hp / en.stats.HP) * 100;
-        if (enemyBar) enemyBar.style.width = `${enPct}%`;
-        if (enemyTxt) enemyTxt.textContent = `HP ${en.hp}/${en.stats.HP}`;
-        // 보이도록
-        enemyBar?.parentElement?.removeAttribute('aria-hidden');
-        enemyTxt?.parentElement?.removeAttribute('aria-hidden');
-    } else {
-        // 적이 없으면 0/0로 덮어쓰지 않고 숨김/공백 처리
-        if (enemyBar) enemyBar.style.width = `0%`;
-        if (enemyTxt) enemyTxt.textContent = '';
-        enemyBar?.parentElement?.setAttribute('aria-hidden', 'true');
-        enemyTxt?.parentElement?.setAttribute('aria-hidden', 'true');
+    if (en) {
+        const maxHP = Math.max(1, en?.stats?.HP || en?.hp || 1);
+        const enPct = Math.max(0, Math.min(100, (en.hp / maxHP) * 100));
+        const hpEnBar = document.getElementById('hpEnemy');
+        const hpEnTxt = document.getElementById('hpEnemyTxt');
+        if (hpEnBar) hpEnBar.style.width = `${enPct}%`;
+        if (hpEnTxt) hpEnTxt.textContent = `HP ${en.hp}/${maxHP}`;
     }
+
+    // YOU 스프라이트도 HP/장비 상태 변화에 맞춰 갱신
+    renderYouSprite?.();
 }
 
 $('#attackBtn').addEventListener('click', () => {
@@ -995,7 +1098,7 @@ $('#attackBtn').addEventListener('click', () => {
             break;
         }
         case 'Echo Barrage': {
-            hits = 2 + Math.floor(r() * 2);
+            hits = 2 + Math.floor(r() * 2); // 2~3
             break;
         }
         case 'Fragment Surge': {
@@ -1043,7 +1146,7 @@ function enemyAttack() {
     const r = you.rng;
 
     const dmgBase = Math.max(1, Math.round(en.stats.ATK - eff.DEF * 0.25));
-    const randMul = 0.9 + r() * 0.2;
+    const randMul = 0.9 + r() * 0.2; // ±10%
 
     const PRESSURE_K = 0.05;
     const hpPct = Math.max(0, Math.min(1, you.hp / eff.HPmax));
@@ -1162,6 +1265,8 @@ function checkMemoryWish(meta, wish) {
 }
 
 /* ---------- 방 이벤트 ---------- */
+// (오래된 openReward 구현은 제거하고, 아래 Vault 버전만 사용)
+
 function openEvent() {
     const panel = $('#dialoguePanel');
     const lines = $('#dialogueLines');
@@ -1404,8 +1509,7 @@ function openExit() {
     };
 
     $('#seedOkB').onclick = async () => {
-        const f = $('#seedFileB').files?.[0];
-        if (!f) return;
+        const f = $('#seedFileB').files?.[0]; if (!f) return;
         const ab = await f.arrayBuffer();
         state.seeds.env = await safeHashHex(ab);
 
@@ -1422,7 +1526,7 @@ function openExit() {
 
         if (state.fidelity >= 5) {
             try {
-                const key = computeEndingKey();
+                const key = computeEndingKey(); // good | normal | bad
                 await openEnding(key);
             } catch (e) {
                 console.error(e);
@@ -1633,8 +1737,9 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* =========================
-   Vault (백업 캐시 금고)
+   Vault (백업 캐시 금고) — Drop-in
    ========================= */
+
 state.temp ||= {};
 state.temp.vault ||= { shards: 0, keys: 0 };
 function _vrng() { return (state.char?.rng || Math.random); }
@@ -1799,7 +1904,7 @@ function legacyRewardFallback() {
     input.click();
 }
 
-/* 공개 API: Vault */
+/* 공개 API: Vault 버전 */
 function openReward() {
     const V = state.temp.vault;
     if (!('shards' in V)) V.shards = 0;
@@ -1836,6 +1941,3 @@ function storyAt(key, text, opts = {}) {
         });
     }
 }
-
-/* ===== util for enemy color ===== */
-function _hsl(h, s, l) { return `hsl(${h},${s}%,${l}%)`; }
