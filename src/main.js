@@ -325,7 +325,7 @@ function metaToStats(meta) {
 /* ================================
    PIXIE Log (from scratch)
    ================================ */
-const PIXIE_BUF = []; // { text, tone, badge, time }
+const PIXIE_BUF = [];
 function escapeHTML(s = '') { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function pickTone(s) {
     if (/오류|ERROR|탈락|경고|DEF -|에러|실패/.test(s)) return 'err';
@@ -587,7 +587,7 @@ function roomDesc(type) {
         default: return '';
     }
 }
-/* 말풍선 확률: 튜토리얼은 항상, 그 외 35% (게임 RNG 소비 금지) */
+/* 말풍선 확률: 튜토리얼은 항상, 그 외 35% */
 function shouldNarrateRoom() {
     if (state?.map?.id === 'TUT') return true;
     return Math.random() < 0.35;
@@ -606,7 +606,7 @@ function enterRoom(nodeId) {
     if (first) {
         state.visited.add(key);
 
-        // ✅ 핵심 액션: 항상 실행
+        // ✅ 핵심 액션
         if (state.room.type === 'battle' || state.room.type === 'boss') {
             spawnEnemy(state.room.type === 'boss');
         } else if (state.room.type === 'reward') {
@@ -621,7 +621,7 @@ function enterRoom(nodeId) {
             openExit();
         }
 
-        // ✅ 말풍선: 보스는 항상, 그 외는 확률
+        // ✅ 말풍선
         const t = state.room.type;
         const narrate = (t === 'boss') || shouldNarrateRoom();
         if (narrate) {
@@ -793,6 +793,117 @@ function calcEnemyStats(isBoss = false) {
         SPD: Math.max(1, Math.round(base.SPD * spdMul)),
     };
 }
+
+/* =========================================
+ * Enemy Sprite System — VARIANTS
+ * ========================================= */
+const _enemySpriteCache = new Map();
+function buildEnemySpriteConfig(seed32, isBoss = false) {
+    const r = makeRNG(seed32 >>> 0);
+    const archetypes = ['sentinel', 'swarm', 'obelisk', 'orbiter'];
+    const type = isBoss ? 'obelisk' : archetypes[Math.floor(r() * archetypes.length)];
+
+    const baseH = ((state.char?.meta?.hsvAvg?.h ?? 210) + 140 + Math.round((r() - 0.5) * 30) + 360) % 360;
+    const sat = 60 + Math.round(r() * 10);
+    const lig = isBoss ? 22 : 18;
+
+    const strokeStyle = (r() < 0.35) ? 'dash' : 'solid';
+    const tiltDeg = Math.round((r() - 0.5) * 10);
+    const badge = (r() < 0.18) ? true : false;
+
+    let params = {};
+    if (type === 'sentinel') {
+        params = { frame: 'rect', dash: true, triH: 0.55 + r() * 0.08 };
+    } else if (type === 'swarm') {
+        params = { dots: (isBoss ? 7 : 3 + Math.floor(r() * 3)), radius: 7 + Math.floor(r() * 9) };
+    } else if (type === 'obelisk') {
+        params = { pillarW: 0.28 + r() * 0.08, eye: true, rings: isBoss ? 3 : 1 + Math.floor(r() * 2) };
+    } else if (type === 'orbiter') {
+        params = { coreR: 0.22 + r() * 0.06, sats: (isBoss ? 4 : 2 + Math.floor(r() * 2)) };
+    }
+
+    return { type, baseH, sat, lig, strokeStyle, tiltDeg, badge, params, isBoss };
+}
+function svgDataURLEnemy(cfg, w = 160, h = 160) {
+    const { type, baseH, sat, lig, strokeStyle, tiltDeg, badge, params, isBoss } = cfg;
+
+    const bg = _hsl(baseH, Math.max(30, sat - 10), lig);
+    const fg = _hsl((baseH + 20) % 360, Math.min(100, sat + 10), Math.min(80, lig + 20));
+    const accent = _hsl((baseH + 300) % 360, Math.min(100, sat + 12), Math.min(78, lig + 28));
+
+    const cx = w / 2, cy = h / 2;
+    const rot = `transform="rotate(${tiltDeg},${cx},${cy})"`;
+    const dash = strokeStyle === 'dash' ? `stroke-dasharray="6 4"` : '';
+
+    let main = '';
+    if (type === 'sentinel') {
+        const rx = 12, ry = 12;
+        const grid = `<rect x="12" y="12" width="${w - 24}" height="${h - 24}" rx="${rx}" ry="${ry}" fill="none" stroke="${fg}" ${dash} opacity=".35"/>`;
+        const triH = params.triH || 0.58;
+        const p1 = `${cx - (w * 0.28)},${cy + (h * 0.20)}`;
+        const p2 = `${cx},${cy - (h * triH * 0.5)}`;
+        const p3 = `${cx + (w * 0.28)},${cy + (h * 0.20)}`;
+        const tri = `<polygon points="${p1} ${p2} ${p3}" fill="${fg}" opacity="${isBoss ? 0.85 : 0.75}" ${rot}/>`;
+        main = grid + tri;
+    } else if (type === 'swarm') {
+        const n = params.dots || 4, r = params.radius || 10;
+        const dots = [];
+        for (let i = 0; i < n; i++) {
+            const ang = (i / n) * Math.PI * 2;
+            const rr = Math.min(w, h) * 0.25 + (i % 2 ? 8 : -8);
+            const x = cx + rr * Math.cos(ang);
+            const y = cy + rr * Math.sin(ang);
+            dots.push(`<circle cx="${x}" cy="${y}" r="${r}" fill="${fg}" opacity="${0.7}" ${rot}/>`);
+        }
+        main = dots.join('');
+    } else if (type === 'obelisk') {
+        const pw = (params.pillarW || 0.3) * w;
+        const rect = `<rect x="${cx - pw / 2}" y="${h * 0.18}" width="${pw}" height="${h * 0.64}" fill="${fg}" opacity="${0.78}" ${rot}/>`;
+        const rings = [];
+        const ringN = params.rings || 1;
+        for (let i = 0; i < ringN; i++) {
+            const rr = Math.min(w, h) * (0.28 + i * 0.06);
+            rings.push(`<circle cx="${cx}" cy="${cy}" r="${rr}" fill="none" stroke="${accent}" stroke-width="2" opacity="${0.35 - i * 0.06}" ${rot}/>`);
+        }
+        const eye = params.eye ? `<circle cx="${cx}" cy="${h * 0.36}" r="${8}" fill="${accent}" ${rot}/>` : '';
+        main = rect + rings.join('') + eye;
+    } else if (type === 'orbiter') {
+        const coreR = (params.coreR || 0.24) * Math.min(w, h);
+        const core = `<circle cx="${cx}" cy="${cy}" r="${coreR}" fill="${fg}" opacity="${0.82}" ${rot}/>`;
+        const sats = params.sats || 2;
+        const satEls = [];
+        for (let i = 0; i < sats; i++) {
+            const ang = (i / sats) * Math.PI * 2;
+            const rr = coreR + 20 + (i % 2 ? 6 : -6);
+            const x = cx + rr * Math.cos(ang);
+            const y = cy + rr * Math.sin(ang);
+            satEls.push(`<circle cx="${x}" cy="${y}" r="${8}" fill="${accent}" opacity="0.8" ${rot}/>`);
+        }
+        main = core + satEls.join('');
+    }
+
+    const badgeEl = badge ? `<text x="${w - 16}" y="${16}" font-size="12" text-anchor="end" fill="${accent}" opacity=".65">✴</text>` : '';
+    const base = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+    <rect width="100%" height="100%" fill="${bg}"/>
+    ${main}
+    <line x1="${w * 0.15}" y1="${h * 0.85}" x2="${w * 0.85}" y2="${h * 0.85}" stroke="${accent}" stroke-width="3" opacity=".5"/>
+    ${badgeEl}
+  </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(base);
+}
+function renderEnemySprite(seed32, isBoss = false) {
+    const cfg = buildEnemySpriteConfig(seed32, isBoss);
+    const key = JSON.stringify(cfg);
+    if (!_enemySpriteCache.has(key)) {
+        _enemySpriteCache.set(key, svgDataURLEnemy(cfg));
+    }
+    const url = _enemySpriteCache.get(key);
+    const el = document.getElementById('enemySprite');
+    if (el) el.src = url;
+}
+
+/* ★ 적 생성 */
 function spawnEnemy(isBoss = false) {
     const stats = calcEnemyStats(isBoss);
     state.enemy = {
@@ -800,36 +911,70 @@ function spawnEnemy(isBoss = false) {
         stats, hp: stats.HP,
         chips: isBoss ? ['과열', '보호막'] : ['과열']
     };
+
+    const seed =
+        (state.floor << 16) ^
+        (parseInt((state.map?.id || '').replace(/\D/g, '')) || 0) ^
+        (parseInt((state.room?.id || '').replace(/\D/g, '')) || 0) ^
+        (parseInt(state.runId || '0', 16) >>> 0);
+
     setSpritesForBattle();
+    renderEnemySprite(seed >>> 0, isBoss);
+
     renderBattleUI();
     log(`적 등장: ${state.enemy.name} HP ${state.enemy.hp} (scaled)`);
     if (state.char?.trapDEF > 0) log(`함정 경고: DEF -${state.char.trapDEF} (피격 시 1스택 소모)`);
 }
+
 function renderBattleUI() {
     $('#battleStage').hidden = false;
+
+    // ▼ 전투 상태 플래그(“1도 추가”): 전투 중에만 적 HP 표시
+    const enemyBar = $('#hpEnemy');
+    const enemyTxt = $('#hpEnemyTxt');
+    if (enemyBar) enemyBar.parentElement?.removeAttribute('aria-hidden');
+    if (enemyTxt) enemyTxt.parentElement?.removeAttribute('aria-hidden');
+
     updateHPBars();
     $('#enemyChips').innerHTML = state.enemy.chips.map(c => `<span class="chip">${c}</span>`).join('');
     state.turnLock = false;
     $('#attackBtn').disabled = false;
 }
+
+/* ★★★ HP 바 업데이트 — 버그픽스 ★★★ */
 function updateHPBars() {
     if (!state.char) return;
+
     const eff = getYouStats();
-    const you = state.char, en = state.enemy;
+    const you = state.char;
+    const en = state.enemy;
 
     const youPct = Math.max(0, you.hp / eff.HPmax) * 100;
-    $('#hpYou').style.width = `${youPct}%`;
-    $('#hpYouTxt').textContent = `HP ${you.hp}/${eff.HPmax}`;
+    const youBar = $('#hpYou');
+    const youTxt = $('#hpYouTxt');
+    if (youBar) youBar.style.width = `${youPct}%`;
+    if (youTxt) youTxt.textContent = `HP ${you.hp}/${eff.HPmax}`;
 
-    if (en) {
+    const enemyBar = $('#hpEnemy');
+    const enemyTxt = $('#hpEnemyTxt');
+
+    if (en && en.stats && typeof en.stats.HP === 'number') {
+        // 적이 “존재할 때만” 값을 갱신
         const enPct = Math.max(0, en.hp / en.stats.HP) * 100;
-        $('#hpEnemy').style.width = `${enPct}%`;
-        $('#hpEnemyTxt').textContent = `HP ${en.hp}/${en.stats.HP}`;
+        if (enemyBar) enemyBar.style.width = `${enPct}%`;
+        if (enemyTxt) enemyTxt.textContent = `HP ${en.hp}/${en.stats.HP}`;
+        // 보이도록
+        enemyBar?.parentElement?.removeAttribute('aria-hidden');
+        enemyTxt?.parentElement?.removeAttribute('aria-hidden');
     } else {
-        $('#hpEnemy').style.width = `0%`;
-        $('#hpEnemyTxt').textContent = `HP 0/0`;
+        // 적이 없으면 0/0로 덮어쓰지 않고 숨김/공백 처리
+        if (enemyBar) enemyBar.style.width = `0%`;
+        if (enemyTxt) enemyTxt.textContent = '';
+        enemyBar?.parentElement?.setAttribute('aria-hidden', 'true');
+        enemyTxt?.parentElement?.setAttribute('aria-hidden', 'true');
     }
 }
+
 $('#attackBtn').addEventListener('click', () => {
     if (!state.enemy || state.turnLock) return;
     state.turnLock = true;
@@ -850,7 +995,7 @@ $('#attackBtn').addEventListener('click', () => {
             break;
         }
         case 'Echo Barrage': {
-            hits = 2 + Math.floor(r() * 2); // 2~3
+            hits = 2 + Math.floor(r() * 2);
             break;
         }
         case 'Fragment Surge': {
@@ -898,12 +1043,11 @@ function enemyAttack() {
     const r = you.rng;
 
     const dmgBase = Math.max(1, Math.round(en.stats.ATK - eff.DEF * 0.25));
-    const randMul = 0.9 + r() * 0.2; // ±10%
+    const randMul = 0.9 + r() * 0.2;
 
-    // ▼ 긴박감 배율: HP가 낮을수록 약간↑ (최대 +5% 기본)
-    const PRESSURE_K = 0.05; // 0.03~0.08 사이 추천
-    const hpPct = Math.max(0, Math.min(1, you.hp / eff.HPmax)); // 0~1
-    const pressureMul = 1 + hpPct * PRESSURE_K; // HP 100%→1.00, 50%→1+0.5K, 0%→1+K
+    const PRESSURE_K = 0.05;
+    const hpPct = Math.max(0, Math.min(1, you.hp / eff.HPmax));
+    const pressureMul = 1 + hpPct * PRESSURE_K;
 
     const final = Math.round(dmgBase * randMul * pressureMul);
 
@@ -1018,8 +1162,6 @@ function checkMemoryWish(meta, wish) {
 }
 
 /* ---------- 방 이벤트 ---------- */
-// (오래된 openReward 구현은 제거하고, 아래 Vault 버전만 사용)
-
 function openEvent() {
     const panel = $('#dialoguePanel');
     const lines = $('#dialogueLines');
@@ -1280,8 +1422,8 @@ function openExit() {
 
         if (state.fidelity >= 5) {
             try {
-                const key = computeEndingKey(); // good | normal | bad
-                await openEnding(key);          // ✅ 존재하는 함수로 교체
+                const key = computeEndingKey();
+                await openEnding(key);
             } catch (e) {
                 console.error(e);
                 enterRoom(state.map.startNodeId);
@@ -1491,9 +1633,8 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* =========================
-   Vault (백업 캐시 금고) — Drop-in
+   Vault (백업 캐시 금고)
    ========================= */
-
 state.temp ||= {};
 state.temp.vault ||= { shards: 0, keys: 0 };
 function _vrng() { return (state.char?.rng || Math.random); }
@@ -1658,7 +1799,7 @@ function legacyRewardFallback() {
     input.click();
 }
 
-/* 공개 API: Vault 버전 */
+/* 공개 API: Vault */
 function openReward() {
     const V = state.temp.vault;
     if (!('shards' in V)) V.shards = 0;
@@ -1695,3 +1836,6 @@ function storyAt(key, text, opts = {}) {
         });
     }
 }
+
+/* ===== util for enemy color ===== */
+function _hsl(h, s, l) { return `hsl(${h},${s}%,${l}%)`; }
