@@ -897,8 +897,15 @@ function enemyAttack() {
     const you = state.char, en = state.enemy;
     const r = you.rng;
 
-    const dmg = Math.max(1, Math.round(en.stats.ATK - eff.DEF * 0.25));
-    const final = Math.round(dmg * (0.9 + r() * 0.2)); // ±10%
+    const dmgBase = Math.max(1, Math.round(en.stats.ATK - eff.DEF * 0.25));
+    const randMul = 0.9 + r() * 0.2; // ±10%
+
+    // ▼ 긴박감 배율: HP가 낮을수록 약간↑ (최대 +5% 기본)
+    const PRESSURE_K = 0.05; // 0.03~0.08 사이 추천
+    const hpPct = Math.max(0, Math.min(1, you.hp / eff.HPmax)); // 0~1
+    const pressureMul = 1 + (1 - hpPct) * PRESSURE_K; // HP 100%→1.00, 50%→1+0.5K, 0%→1+K
+
+    const final = Math.round(dmgBase * randMul * pressureMul);
 
     you.hp = Math.max(0, you.hp - final);
     floatDmg(final, '#dmgFloats', true, false);
@@ -919,6 +926,7 @@ function enemyAttack() {
         $('#attackBtn').disabled = false;
     }
 }
+
 function onEnemyDown() {
     log(`격파: ${state.enemy.name}`);
     $('#attackBtn').disabled = true;
