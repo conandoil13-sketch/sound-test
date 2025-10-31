@@ -903,7 +903,7 @@ function enemyAttack() {
     // ▼ 긴박감 배율: HP가 낮을수록 약간↑ (최대 +5% 기본)
     const PRESSURE_K = 0.05; // 0.03~0.08 사이 추천
     const hpPct = Math.max(0, Math.min(1, you.hp / eff.HPmax)); // 0~1
-    const pressureMul = 1 + (1 - hpPct) * PRESSURE_K; // HP 100%→1.00, 50%→1+0.5K, 0%→1+K
+    const pressureMul = 1 + hpPct * PRESSURE_K; // HP 100%→1.00, 50%→1+0.5K, 0%→1+K
 
     const final = Math.round(dmgBase * randMul * pressureMul);
 
