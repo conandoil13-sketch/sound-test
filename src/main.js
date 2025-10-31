@@ -756,7 +756,7 @@ function advanceFlow(delay = 0) {
 
 /* ===== 데미지 감쇠 커브 ===== */
 function softDamageAgainst(ATK, DEF) {
-    const BASE = 40, SPAN = 70, K_ATK = 1.00, C_DEF = 1.10, BIAS = 10;
+    const BASE = 40, SPAN = 50, K_ATK = 1.00, C_DEF = 1.10, BIAS = 12;
     const num = ATK * K_ATK;
     const den = (ATK * K_ATK) + (DEF * C_DEF) + BIAS;
     const ratio = den > 0 ? num / den : 0;
