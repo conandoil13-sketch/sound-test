@@ -788,6 +788,49 @@ function calcEnemyStats(isBoss = false) {
         SPD: Math.max(1, Math.round(base.SPD * spdMul)),
     };
 }
+/* ---------- 적 소환 (누락 보완) ---------- */
+function spawnEnemy(isBoss = false) {
+    // 1) 적 스탯 결정
+    const stats = calcEnemyStats(isBoss);
+
+    // 2) 이름/칩/시드
+    const roomKey = `${state.map?.id || 'F?'}:${state.room?.id || 'n?'}`;
+    // 간단 시드: roomKey와 runId를 해시처럼 섞기
+    let seed32 = 0x811c9dc5;
+    for (const ch of (roomKey + (state.runId || ''))) {
+        seed32 ^= ch.codePointAt(0);
+        seed32 = Math.imul(seed32, 0x01000193) >>> 0;
+    }
+
+    const rng = makeRNG(seed32);
+    const names = isBoss
+        ? ['관리자 데몬', '수문자 프로세스', '코어 감시자']
+        : ['잔향체', '프래그먼트', '파편 노드', '오염 캐시'];
+    const name = names[Math.floor(rng() * names.length)];
+
+    const chipPool = isBoss
+        ? ['shield', 'overclock', 'rupture', 'scan']
+        : ['scan', 'lag', 'distort', 'jam'];
+    const chipN = isBoss ? 3 : 2;
+    const chips = Array.from({ length: chipN }, () => chipPool[Math.floor(rng() * chipPool.length)]);
+
+    // 3) 상태 생성
+    state.enemy = {
+        name,
+        stats,
+        hp: stats.HP,
+        chips,
+        seed: seed32,
+        isBoss: !!isBoss,
+    };
+
+    // 4) 스프라이트 & UI
+    renderEnemySprite(seed32, isBoss);
+    setSpritesForBattle();   // YOU 스프라이트 동기화
+    renderBattleUI();        // 버튼/칩/HUD 세팅
+    updateHPBars();          // HP 텍스트/바 갱신 보장
+}
+
 
 /* =========================================
  * Enemy Sprite System — VARIANTS (REPLACE)
